@@ -103,15 +103,48 @@ jobs:
             echo "::warning::No OMNI_KEYSTORE_BASE64 secret - built with throwaway dev key. Not distributable."
           fi
 
-      - name: Build
+      - name: Report disk usage
+        run: df -h / /home/runner 2>/dev/null || true
+
+      # Раннер ubuntu-latest даёт ~14 ГБ, а нативная сборка 2 ABI съедает почти
+      # всё: 1732 .o + .so по ~330 МБ. Без чистки упаковка падает с
+      # "No space left on device" (видели на прогоне #4).
+      # Стратегия: ждём готовности .so, удаляем объекты CMake, потом держим
+      # Gradle в режиме без сборки лишнего. Повторный запуск не пересобирает
+      # нативное — оно up-to-date.
+      - name: Build native libraries
         run: |
           chmod +x gradlew
           TYPE="${{ inputs.build_type || 'release' }}"
-          echo "Building type=$TYPE"
+          # Важно: у release не buildCMakeRelease, а buildCMakeRelWithDebInfo.
+          case "$TYPE" in
+            release) VARIANT=RelWithDebInfo ;;
+            debug)   VARIANT=Debug ;;
+            *) echo "Unknown build type: $TYPE"; exit 1 ;;
+          esac
+          echo "TYPE=$TYPE" >> "$GITHUB_ENV"
+          echo "Building native: $VARIANT"
           # shellcheck disable=SC2086
-          ./gradlew --parallel --stacktrace \
-            $SIGNING_ARGS \
-            :TMessagesProj_App:assembleAfat${TYPE^}
+          ./gradlew --parallel --stacktrace $SIGNING_ARGS \
+            ":TMessagesProj:buildCMake${VARIANT}[armeabi-v7a][tmessages.49]" \
+            ":TMessagesProj:buildCMake${VARIANT}[arm64-v8a][tmessages.49]"
+
+      - name: Free disk space (drop CMake objects)
+        run: |
+          echo "=== before ==="
+          df -h / | tail -1
+          du -sh TMessagesProj/.cxx 2>/dev/null || true
+          find TMessagesProj/.cxx -name "*.o" -delete 2>/dev/null || true
+          find TMessagesProj -path "*CMakeFiles*" -name "*.o" -delete 2>/dev/null || true
+          echo "=== after ==="
+          df -h / | tail -1
+          du -sh TMessagesProj/.cxx 2>/dev/null || true
+
+      - name: Assemble APK
+        run: |
+          # shellcheck disable=SC2086
+          ./gradlew --parallel --stacktrace $SIGNING_ARGS \
+            ":TMessagesProj_App:assembleAfat${TYPE^}"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
