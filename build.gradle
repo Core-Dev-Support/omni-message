@@ -67,6 +67,24 @@ ext.loadSecret = { String name ->
     }
 }
 
+// Плагин google-services падает, если в google-services.json нет клиента
+// с package_name == applicationId. Своего Firebase-проекта у нас пока нет
+// (см. PLAN.md B4/G1 — FCM и телеметрия выпиливаются), а апстримовские JSON
+// содержат только org.telegram.messenger. Поэтому подключаем плагин только
+// когда рядом лежит свой google-services.json с нашим пакетом.
+// Поменял APP_PACKAGE -> положил свой JSON -> плагин включился автоматически.
+ext.applyGoogleServices = { org.gradle.api.Project proj ->
+    def f = new File(proj.projectDir, 'google-services.json')
+    if (!f.exists()) {
+        return false
+    }
+    def base = rootProject.hasProperty('APP_PACKAGE') ? rootProject.property('APP_PACKAGE') : ''
+    if (!base) {
+        return false
+    }
+    return f.text.contains(base)
+}
+
 subprojects {
     plugins.withId('com.android.application') {
         android {

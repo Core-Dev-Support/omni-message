@@ -166,4 +166,6 @@ android {
     }
 }
 
-apply plugin: 'com.google.gms.google-services'
+if (rootProject.applyGoogleServices(project)) {
+    apply plugin: 'com.google.gms.google-services'
+}

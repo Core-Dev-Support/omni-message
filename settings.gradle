@@ -1,7 +1,10 @@
 include ':TMessagesProj'
 include ':TMessagesProj_App'
 include ':TMessagesProj_AppHuawei'
-include ':TMessagesProj_AppHockeyApp'
+// TMessagesProj_AppHockeyApp отключён: троттлинг/краш-репорты выпиливаются
+// по плану (G1 — ноль телеметрии). Модуль требует google-services.json
+// с HockeyApp SDK и не собирается в CI.
+// Включать обратно: include ':TMessagesProj_AppHockeyApp'
 include ':TMessagesProj_AppStandalone'
 include ':TMessagesProj_AppTests'
 include ':jlatexmath'
