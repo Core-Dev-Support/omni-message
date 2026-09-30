@@ -17,11 +17,15 @@ TMessagesProj_AppHuawei/afat/
 TMessagesProj/jni/ffmpeg/build_android
 
 # --- Секреты и ключи (НИКОГДА не коммитить) ---
-gradle.properties
+# Внимание: gradle.properties ОТСЛЕЖИВАЕТСЯ и содержит только несекретные
+# настройки (версия, applicationId, JVM). Пароли туда НЕ кладутся.
+# Секреты читаются из local.properties / secrets.properties / env / -P флагов.
 *.keystore
 *.jks
 !debug.keystore
 secrets.properties
+.env
+*.p12
 
 # --- Android / Gradle ---
 captures/

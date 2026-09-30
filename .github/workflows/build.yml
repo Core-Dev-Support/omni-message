@@ -1,0 +1,106 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Gradle build type (release / debug)'
+        required: false
+        default: 'release'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx8g
+
+jobs:
+  build:
+    name: Assemble APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "cmake;3.22.1" \
+            "ndk;27.2.12479018"
+
+      - name: Cache native build objects
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/.cxx
+            TMessagesProj/jni/**/CMakeFiles
+          key: cxx-${{ runner.os }}-${{ hashFiles('TMessagesProj/jni/CMakeLists.txt') }}-${{ github.sha }}
+          restore-keys: |
+            cxx-${{ runner.os }}-${{ hashFiles('TMessagesProj/jni/CMakeLists.txt') }}-
+            cxx-${{ runner.os }}-
+
+      - name: Prepare signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.OMNI_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        run: |
+          mkdir -p TMessagesProj/config
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > TMessagesProj/config/release.keystore
+            echo "SIGNING_ARGS=-PRELEASE_STORE_PASSWORD=$STORE_PASSWORD -PRELEASE_KEY_PASSWORD=$KEY_PASSWORD -PRELEASE_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "::notice::Using production signing key from secrets"
+          else
+            keytool -genkeypair -v \
+              -keystore TMessagesProj/config/release.keystore \
+              -alias androidkey -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass android -keypass android \
+              -dname "CN=Omni Message Dev, OU=Dev, O=Omni Message, L=NA, S=NA, C=NA"
+            echo "::warning::No OMNI_KEYSTORE_BASE64 secret - built with throwaway dev key. Not distributable."
+          fi
+
+      - name: Build
+        run: |
+          chmod +x gradlew
+          TYPE="${{ inputs.build_type || 'release' }}"
+          echo "Building type=$TYPE"
+          # shellcheck disable=SC2086
+          ./gradlew --parallel --stacktrace \
+            $SIGNING_ARGS \
+            :TMessagesProj_App:assembleAfat${TYPE^}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: omni-message-apk
+          path: |
+            TMessagesProj_App/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 30

@@ -25,6 +25,40 @@ repositories {
 //   keep:  base/, latin/, maths/, euler/  (\mathbb, \mathcal, \mathfrak still work)
 //   drop:  latin/optional/, maths/optional/  (~290 KB; \textbf/\textit/\mathds fall back)
 //          licences/                          (~20 KB; pure license text files)
+// Секреты подписи живут не в git. Приоритет:
+//   1. -P<NAME>=...        (командная строка; используется в CI)
+//   2. local.properties    (локальная разработка, в gitignore)
+//   3. secrets.properties  (локальная разработка, в gitignore)
+//   4. переменные окружения
+//   5. gradle.properties   (только несекретные дефолты)
+// В git-репозитории секретов нет — CI получает их из GitHub Secrets.
+def secretProps = new Properties()
+['local.properties', 'secrets.properties'].each { name ->
+    def f = rootProject.file(name)
+    if (f.exists()) {
+        secretProps.load(new FileInputStream(f))
+    }
+}
+ext.loadSecret = { String name ->
+    if (project.hasProperty(name)) {
+        return project.property(name).toString()
+    }
+    if (secretProps.getProperty(name)) {
+        return secretProps.getProperty(name).toString()
+    }
+    def env = System.getenv(name)
+    if (env) {
+        return env
+    }
+    return ''
+}
+['RELEASE_STORE_PASSWORD', 'RELEASE_KEY_PASSWORD', 'RELEASE_KEY_ALIAS'].each { name ->
+    def v = loadSecret(name)
+    if (v) {
+        ext.set(name, v)
+    }
+}
+
 subprojects {
     plugins.withId('com.android.application') {
         android {

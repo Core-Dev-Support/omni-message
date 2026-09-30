@@ -1,0 +1,34 @@
+## Шаблон. Скопируй в gradle.properties (файл НЕ отслеживается git — секреты не должны попасть в репозиторий).
+##   Windows: copy gradle.properties.template gradle.properties
+##   Linux:   cp gradle.properties.template gradle.properties
+## В CI значения RELEASE_* приходят из GitHub Secrets в ~/.gradle/gradle.properties.
+
+# --- Версия приложения ---
+APP_VERSION_CODE=7105
+APP_VERSION_NAME=12.10.5
+APP_PACKAGE=com.naua_omni_message.app
+IS_PRIVATE=false
+
+# --- Подпись (НЕ коммитить реальные значения) ---
+# Keystore лежит в TMessagesProj/config/release.keystore (тоже не отслеживается).
+# Сгенерировать свой:
+#   keytool -genkeypair -v -keystore TMessagesProj/config/release.keystore \
+#     -alias omni -keyalg RSA -keysize 2048 -validity 10000
+RELEASE_KEY_PASSWORD=CHANGE_ME
+RELEASE_KEY_ALIAS=omni
+RELEASE_STORE_PASSWORD=CHANGE_ME
+
+# --- Gradle / JVM ---
+org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1g
+org.gradle.daemon=true
+org.gradle.parallel=true
+org.gradle.configureondemand=false
+
+# --- Android ---
+android.useAndroidX=true
+android.enableJetifier=true
+android.defaults.buildfeatures.buildconfig=true
+android.enableR8.fullMode=true
+android.r8.optimizedResourceShrinking=true
+android.enableResourceOptimizations=true
+org.gradle.tooling.parallel=true
