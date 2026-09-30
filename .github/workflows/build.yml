@@ -41,9 +41,9 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
+      # ВНИМАНИЕ: android-actions/setup-android@v3 ставит пакет "tools", который
+      # убран из репозитория Google ("Failed to find package 'tools'"). На
+      # ubuntu-latest cmdline-tools уже предустановлены, поэтому шаг не нужен.
       - name: Install SDK packages
         run: |
           yes | sdkmanager --licenses > /dev/null || true
