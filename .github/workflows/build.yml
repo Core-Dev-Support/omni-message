@@ -42,12 +42,29 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       # ВНИМАНИЕ: android-actions/setup-android@v3 ставит пакет "tools", который
-      # убран из репозитория Google ("Failed to find package 'tools'"). На
-      # ubuntu-latest cmdline-tools уже предустановлены, поэтому шаг не нужен.
+      # убран из репозитория Google ("Failed to find package 'tools'"). Ставим
+      # cmdline-tools вручную нужной версии.
+      - name: Set up Android SDK
+        run: |
+          set -euo pipefail
+          SDK_ROOT="$ANDROID_SDK_ROOT"
+          CMDLINE_VERSION=11076708   # 12.0
+          curl -fsSL -o /tmp/cmdline.zip \
+            "https://dl.google.com/android/repository/commandlinetools-linux-${CMDLINE_VERSION}_latest.zip"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          unzip -q /tmp/cmdline.zip -d /tmp/cmdline
+          rm -rf "$SDK_ROOT/cmdline-tools/latest"
+          mv /tmp/cmdline/cmdline-tools "$SDK_ROOT/cmdline-tools/latest"
+          echo "SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUBUB_PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUBUB_PATH"
+
       - name: Install SDK packages
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager --install \
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_SDK_ROOT" --licenses > /dev/null || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_SDK_ROOT" --install \
             "platform-tools" \
             "platforms;android-36" \
             "build-tools;36.0.0" \
