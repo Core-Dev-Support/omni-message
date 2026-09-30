@@ -40,15 +40,23 @@ def secretProps = new Properties()
     }
 }
 ext.loadSecret = { String name ->
-    if (project.hasProperty(name)) {
-        return project.property(name).toString()
+    // 1. -P<NAME>=... из командной строки (CI)
+    def cli = gradle.startParameter.projectProperties[name]
+    if (cli) {
+        return cli.toString()
     }
+    // 2/3. local.properties, secrets.properties
     if (secretProps.getProperty(name)) {
         return secretProps.getProperty(name).toString()
     }
+    // 4. переменные окружения
     def env = System.getenv(name)
     if (env) {
         return env
+    }
+    // 5. дефолт из gradle.properties (только несекретные заглушки)
+    if (project.hasProperty(name)) {
+        return project.property(name).toString()
     }
     return ''
 }

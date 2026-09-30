@@ -31,7 +31,7 @@ base64 -w0 TMessagesProj/config/release.keystore
 Требует: JDK 17, Android SDK 36 + build-tools 36.0.0 + cmake 3.22.1, NDK 27.2.12479018.
 
 ```bash
-# 1. Подмодули (обязательно, ~2-4 ГБ, долго)
+# 1. Подмодули (обязательно, ~4 ГБ, долго)
 git submodule update --init --recursive
 
 # 2. Конфиг сборки
@@ -45,10 +45,46 @@ echo "sdk.dir=/path/to/Android/Sdk" > local.properties
 ./gradlew :TMessagesProj_App:assembleAfatDebug
 ```
 
-> На Windows в репозитории нет `gradlew.bat` (апстрим его не отслеживает). Используй Android Studio
-> или поставь Gradle 8.13 вручную: `gradle wrapper` сгенерирует оба скрипта.
-
 APK: `TMessagesProj_App/build/outputs/apk/afat/*/app.apk`
+
+## Windows: три обязательных условия
+
+Сборка на Windows ломается на трёх вещах. Все три уже решены в этом репозитории,
+но знать их нужно, если будешь переносить проект или настраивать машину с нуля.
+
+**1. Путь проекта не должен содержать кириллицу.** Android Gradle Plugin проверяет путь и
+падает с ошибкой:
+
+```
+Your project path contains non-ASCII characters. This will most likely cause the build to fail
+on Windows. Please move your project to a different directory.
+```
+
+Не помогает ни VPN, ни `android.useAndroidX`. Варианты: ASCII-путь, либо junction
+( junction — мгновенно, файлы остаются на месте):
+
+```powershell
+New-Item -ItemType Junction -Path C:\omni -Target "C:\путь\с\кириллицей\Omni Message"
+cd C:\omni
+.\gradlew.bat :TMessagesProj_App:assembleAfatDebug
+```
+
+**2. Нужен `gradlew.bat`.** Апстрим его не отслеживает, в репозитории лежит только Unix-скрипт.
+PowerShell его не выполнит. Скопируй `gradlew.bat` из репозитория Gradle той же версии (8.13).
+
+**3. Git и длинные пути.** Часть сабмодулей (в `media3` — тестовые дампы) даёт пути длиннее
+260 символов и не распаковывается:
+
+```
+error: unable to create file .../sample_with_fake_auxiliary_tracks_...dump: Filename too long
+```
+
+```powershell
+git config --global core.longpaths true
+```
+
+Если падает с `Filename too long` уже после распаковки — включи `LongPathsEnabled=1` в реестре
+(`HKLM\SYSTEM\CurrentControlSet\Control\FileSystem`) и перезапусти git.
 
 ## Почему сборка такая долгая
 
