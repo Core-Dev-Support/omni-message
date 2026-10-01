@@ -147,6 +147,14 @@ android {
 
         multiDexEnabled true
 
+        // Нативная часть (ffmpeg, webrtc, boringssl, wamr) собирается в этом
+        // модуле. Без явного фильтра CMake собирает ВСЕ четыре ABI, включая
+        // x86/x86_64 — а они нужны только эмулятору и удваивают время сборки
+        // (~40 мин вместо ~20). Ограничиваем реальными ARM-архитектурами.
+        ndk {
+            abiFilters "armeabi-v7a", "arm64-v8a"
+        }
+
         externalNativeBuild {
             cmake {
                 version '3.22.1'
