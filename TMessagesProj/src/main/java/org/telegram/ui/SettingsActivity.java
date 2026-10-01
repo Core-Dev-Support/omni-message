@@ -695,6 +695,11 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         items.add(SettingCell.Factory.of(9, IconBackgroundColors.ORANGE_DEEP.top, IconBackgroundColors.ORANGE_DEEP.bottom, R.drawable.settings_power, getString(R.string.SettingsPowerSaving), getString(R.string.SettingsPowerSavingInfo)));
         items.add(SettingCell.Factory.of(10, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom, R.drawable.settings_language, getString(R.string.SettingsLanguage), LocaleController.getCurrentLanguageName()));
 
+        // Omni Message: единая точка входа для всех наших фич (PLAN.md B6).
+        // По образцу AyuGram / CherryGram: один пункт в меню, внутри — категории
+        // «Приватность», «Обход блокировок», «Оформление», «Фишки».
+        items.add(SettingCell.Factory.of(100, 0xFF1FBFA8, 0xFF148F7F, R.drawable.settings_privacy, getString(R.string.OmniSettingsTitle), getString(R.string.OmniSettingsInfo)));
+
         items.add(UItem.asShadow(null));
 
         if (!getMessagesController().premiumFeaturesBlocked()) {
@@ -814,6 +819,10 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         switch (item.id) {
             case 1:
                 presentSettingFragment(new UserInfoActivity());
+                break;
+            // Omni Message — корневой экран настроек (PLAN.md B6)
+            case 100:
+                presentSettingFragment(new OmniSettingsActivity());
                 break;
             case 2:
                 presentSettingFragment(new ThemeActivity(ThemeActivity.THEME_TYPE_BASIC));

@@ -1,6 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="AppName">Omni Message</string>
+
+    <!-- Omni Message: настройки (PLAN.md B6) -->
+    <string name="OmniSettingsTitle">Omni Message Settings</string>
+    <string name="OmniSettingsInfo">Privacy, connectivity and customization</string>
+    <string name="OmniSettingsAbout">Omni Message — неофициальный клиент Telegram. Не связан с Telegram FZ-LLC.</string>
+    <string name="OmniSettingsCategoryPrivacy">Privacy</string>
+    <string name="OmniSettingsCategoryNetwork">Connectivity</string>
+    <string name="OmniSettingsCategoryAppearance">Appearance</string>
+    <string name="OmniCategoryPrivacy">Privacy</string>
+    <string name="OmniCategoryNetwork">Blocked networks</string>
+    <string name="OmniCategoryAppearance">Appearance and security</string>
+    <string name="OmniGhostRead">Hide read receipts</string>
+    <string name="OmniGhostOnline">Hide online status</string>
+    <string name="OmniGhostTyping">Hide typing status</string>
+    <string name="OmniAntiRecall">Anti-recall</string>
+    <string name="OmniPrivacyWarning">Your contacts will not see your read receipts, online status or typing. Some may notice that messages are not marked as read.</string>
+    <string name="OmniNetworkTitle">Automatic proxy</string>
+    <string name="OmniNetworkProxyOn">Enabled</string>
+    <string name="OmniNetworkOff">Disabled</string>
+    <string name="OmniNetworkInfo">Automatically route the app through an MTProto proxy when the direct connection fails. Coming soon.</string>
+    <string name="OmniAppLock">App lock</string>
+    <string name="OmniAppearanceInfo">PIN, biometrics and screenshot blocking. Coming soon.</string>
     <string name="AppNameBeta">Telegram Beta</string>
     <string name="LanguageName">English</string>
     <string name="English">English</string>
