@@ -67,6 +67,44 @@ ext.loadSecret = { String name ->
     }
 }
 
+// api_id / api_hash Telegram. Тоже секрет по смыслу (привязан к аккаунту
+// разработчика), поэтому в коде их нет. Порядок тот же, что у loadSecret.
+// Дефолты — значения апстрима DrKLO/Telegram (APP_ID=4). Они позволяют
+// собрать и запустить APK, но вход в аккаунт с ними не проходит.
+//
+// Схема по мотивам NovaGram (confeden/novagram-android): значения читаются
+// из local.properties и проверяются на формат, чтобы опечатка падала сразу
+// с понятным сообщением, а не в рантайме на устройстве.
+ext.resolveApiId = {
+    def v = loadSecret('OMNI_TELEGRAM_API_ID')
+    if (!v || v ==~ /\\s*/) {
+        return '4'
+    }
+    def id = v.trim()
+    if (!(id ==~ /[1-9][0-9]*/)) {
+        throw new GradleException(
+            "OMNI_TELEGRAM_API_ID must be a positive integer, got '${id}'. " +
+            "Set it in local.properties, secrets.properties, env or -POMNI_TELEGRAM_API_ID=...")
+    }
+    return id
+}
+ext.resolveApiHash = {
+    def v = loadSecret('OMNI_TELEGRAM_API_HASH')
+    if (!v || v ==~ /\\s*/) {
+        return '014b35b6184100b085b0d0572f9b5103'
+    }
+    def hash = v.trim()
+    if (!(hash ==~ /(?i)[0-9a-f]{32}/)) {
+        throw new GradleException(
+            "OMNI_TELEGRAM_API_HASH must be a 32-character hex value, got '${hash}'. " +
+            "Set it in local.properties, secrets.properties, env or -POMNI_TELEGRAM_API_HASH=...")
+    }
+    return hash
+}
+ext.apiId = resolveApiId()
+ext.apiHash = resolveApiHash()
+
+
 // Плагин google-services падает, если в google-services.json нет клиента
 // с package_name == applicationId. Своего Firebase-проекта у нас пока нет
 // (см. PLAN.md B4/G1 — FCM и телеметрия выпиливаются), а апстримовские JSON

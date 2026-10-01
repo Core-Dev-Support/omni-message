@@ -155,6 +155,12 @@ android {
             abiFilters "armeabi-v7a", "arm64-v8a"
         }
 
+        // Ключи Telegram приходят из local.properties / env / -P (см. root
+        // build.gradle). В коде их нет — репозиторий публичный. Дефолты
+        // позволяют собрать и запустить APK, но не пускают в аккаунт.
+        buildConfigField "int", "APP_ID", apiId
+        buildConfigField "String", "APP_HASH", "\"" + apiHash + "\""
+
         externalNativeBuild {
             cmake {
                 version '3.22.1'
