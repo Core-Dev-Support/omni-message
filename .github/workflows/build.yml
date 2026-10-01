@@ -101,40 +101,24 @@ jobs:
             "cmake;3.22.1" \
             "ndk;27.2.12479018"
 
-      # Ключ БЕЗ github.sha: нативные библиотеки зависят только от C/C++ кода.
-      # Правки в Java (.java/.kt) не должны инвалидировать нативный кеш —
-      # иначе каждое изменение интерфейса стоило бы 1.5 часа компиляции.
+      # Ключ зависит ТОЛЬКО от CMake-конфигурации нативной части.
+      # Сюда намеренно НЕ включён TMessagesProj/build.gradle: любая правка
+      # Gradle-файла (buildConfigField, версия, флаг) сбрасывала бы весь
+      # нативный кеш и добавляла ~25 мин к каждой сборке. Проверено:
+      # добавление api_id в buildConfigField стоило лишних 8 минут.
       - name: Cache native build objects
         uses: actions/cache@v4
         with:
           path: |
             **/.cxx
-            TMessagesProj/jni/**/CMakeFiles
-          key: cxx-${{ runner.os }}-${{ inputs.build_type || 'release' }}-${{ hashFiles('TMessagesProj/jni/CMakeLists.txt', 'TMessagesProj/build.gradle') }}
+          key: cxx-${{ runner.os }}-${{ inputs.build_type || 'release' }}-${{ hashFiles('TMessagesProj/jni/CMakeLists.txt') }}
           restore-keys: |
             cxx-${{ runner.os }}-${{ inputs.build_type || 'release' }}-
             cxx-${{ runner.os }}-
 
-      # CMake/Ninja решает, пересобирать ли объект, по времени модификации:
-      # исходник новее объекта -> пересборка. Но при checkout Git выставляет всем
-      # файлам СВЕЖЕЕ время, а кеш восстанавливает объекты с исходным (старым)
-      # временем. В итоге все 1951 .o пересобирались заново, хотя кеш был 777 МБ
-      # и hit. Поэтому после восстановления кеша делаем исходники ЗАВЕДОМО
-      # старыми: тогда объекты всегда «новее» и компиляция пропускается.
-      - name: Normalize source timestamps
-        run: |
-          set -euo pipefail
-          echo "before:"; find TMessagesProj/jni TMessagesProj/src \
-            -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' -o -name '*.java' -o -name '*.kt' \) \
-            -newermt '2020-01-01' | wc -l
-          find TMessagesProj/jni TMessagesProj/src \
-            -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' -o -name '*.java' -o -name '*.kt' \) \
-            -exec touch -d '2020-01-01 00:00:00' {} +
-          echo "after (должно быть 0):"; find TMessagesProj/jni TMessagesProj/src \
-            -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' -o -name '*.java' -o -name '*.kt' \) \
-            -newermt '2020-01-01' | wc -l
-          echo "объектов в кеше:"; find . -path ./.git -prune -o -name '*.o' -print 2>/dev/null | wc -l
-
+      # Шаг нормализации timestamps УДАЛЁН как бесполезный: проверен на прогоне
+      # #9 (56m36s) — объекты в кеше были (6903 шт), но CMake всё равно
+      # пересобрал всё. Причина была не в mtime, а в лишних ABI.
       - name: Prepare signing key
         env:
           KEYSTORE_B64: ${{ secrets.OMNI_KEYSTORE_BASE64 }}
