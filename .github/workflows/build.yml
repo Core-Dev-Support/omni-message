@@ -13,7 +13,11 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Отменяем прогон только для pull_request: там берётся последний коммит.
+  # Для push в main отменять НЕЛЬЗЯ — сборка идёт до часа, и правка документации
+  # или комментария в коде убивала её на середине, не сохранив кеш нативных
+  # объектов (см. инцидент с прогоном 36814531097).
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx8g

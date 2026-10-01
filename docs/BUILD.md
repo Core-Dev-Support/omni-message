@@ -89,12 +89,51 @@ git config --global core.longpaths true
 ## Почему сборка такая долгая
 
 Нативная часть (`TMessagesProj/jni`) — это C/C++ через CMake: ffmpeg, boringssl, libvpx, dav1d, libyuv,
-wamr, tlottie. Это ~2-4 ГБ исходников и полная пересборка при каждом CI-запуске, если кеш холодный.
+wamr, tlottie. Это ~4 ГБ исходников и полная пересборка при каждом CI-запуске, если кеш холодный.
 
-Что можно сделать для ускорения на следующих этапах:
-- кеш `~/.gradle` и `~/.android/ndk` (в workflow уже частично есть)
-- собирать один ABI за раз вместо четырёх
-- для разработки — `assembleAfatDebug` вместо release
+Что уже сделано в workflow:
+- `abiFilters "armeabi-v7a", "arm64-v8a"` в flavor `afat` — x86/x86_64 убраны. Нативная часть
+  собирается под каждый ABI отдельно, лишние два удваивали время
+- кеш `**/.cxx` и CMakeFiles между прогонами
+- кеш зависимостей Gradle (через `gradle/actions/setup-gradle`)
+
+Для разработки `assembleAfatDebug` быстрее `release` (без R8 и shrink).
+
+## Грабли, на которые уже наступили
+
+Записано, чтобы не повторять при правке workflow.
+
+**`android-actions/setup-android@v3` нельзя использовать.** Он ставит пакет `tools`,
+который убран из репозитория Google:
+
+```
+Warning: Failed to find package 'tools'
+Error: The process '.../sdkmanager' failed with exit code 1
+```
+
+В workflow cmdline-tools ставятся вручную, версия зафиксирована (`CMDLINE_VERSION=11076708`).
+Если поменяешь — не забудь, что `GITHUB_PATH` (а не `GITHUBUB_PATH`) добавляет `sdkmanager` в PATH.
+
+**Плагин google-services падает при смене пакета.** Он требует, чтобы в `google-services.json`
+был клиент с `package_name`, совпадающим с `applicationId` каждого варианта. После смены
+`APP_PACKAGE` на свой пакет все пять апстримовских JSON перестали подходить:
+
+```
+> Task :TMessagesProj_App:processAfatDebugGoogleServices FAILED
+```
+
+Плагин подключается условно (`rootProject.applyGoogleServices(project)` в корневом `build.gradle`):
+если рядом лежит свой `google-services.json` с нашим пакетом — работает, иначе отключается.
+**Своего Firebase-проекта пока нет** (см. PLAN.md B4 — FCM и телеметрия выпиливаются),
+поэтому при сборке сейчас FCM не инициализируется: пуши работать не будут, остальное — да.
+
+**`TMessagesProj_AppHockeyApp` исключён из `settings.gradle`** — требует google-services.json
+с HockeyApp SDK и не собирается в CI. HockeyApp/Crashlytics выпиливаются по плану (G1).
+Вернуть: раскомментировать `include` и применить google-services к модулю.
+
+**Логи прогона доступны только после завершения.** Пока job идёт, `gh run view --log` вернёт
+`logs will be available when it is complete`. Статус шага может показываться как `pending`
+даже во время работы — ориентируйся на `run.status`.
 
 ## Переменные сборки
 

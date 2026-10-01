@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Omni Message Logo</title>
+<style>
+  body { margin:0; padding:0; background:#1a1c22; display:flex; justify-content:center; align-items:center; min-height:100vh; font-family:Segoe UI,Arial,sans-serif; }
+  .row { display:flex; gap:36px; align-items:center; }
+  .cell { text-align:center; color:#9aa0aa; font-size:13px; }
+  .logo-container { width:360px; height:360px; box-shadow:0 20px 50px rgba(0,232,222,.15); border-radius:81px; overflow:hidden; }
+  .sm { border-radius:13px; }
+  .xs { border-radius:6px; }
+</style>
+</head>
+<body>
+<div class="row">
+
+  <div class="cell">
+    <div class="logo-container">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+        <defs>
+          <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#141519"/>
+            <stop offset="100%" stop-color="#0b0c0e"/>
+          </linearGradient>
+          <linearGradient id="omniGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#00f2fe"/>
+            <stop offset="100%" stop-color="#4facfe"/>
+          </linearGradient>
+          
+        </defs>
+        <rect width="512" height="512" rx="115" fill="url(#bgGrad)"/>
+        <g>
+          <ellipse cx="256" cy="256" rx="140" ry="140" fill="none" stroke="url(#omniGrad)"
+                   stroke-width="14" stroke-dasharray="600" stroke-dashoffset="50"
+                   stroke-linecap="round" transform="rotate(-45 256 256)"/>
+          <ellipse cx="256" cy="256" rx="140" ry="80" fill="none" stroke="url(#omniGrad)"
+                   stroke-width="8" stroke-opacity="0.6" stroke-dasharray="400 100"
+                   transform="rotate(45 256 256)"/>
+          <ellipse cx="256" cy="256" rx="140" ry="40" fill="none" stroke="url(#omniGrad)"
+                   stroke-width="4" stroke-opacity="0.3" transform="rotate(15 256 256)"/>
+          <circle cx="256" cy="256" r="28" fill="url(#omniGrad)"/>
+          <circle cx="256" cy="256" r="10" fill="#141519"/>
+          <circle cx="157" cy="157" r="8" fill="#00f2fe"/>
+          <circle cx="355" cy="355" r="8" fill="#4facfe"/>
+          <circle cx="355" cy="157" r="5" fill="#00f2fe" opacity="0.7"/>
+          <circle cx="157" cy="355" r="5" fill="#4facfe" opacity="0.7"/>
+        </g>
+      </svg>
+    </div>
+    <div style="margin-top:14px">512 — как в манифесте</div>
+  </div>
+
+  <div class="cell">
+    <div class="logo-container sm" style="width:144px;height:144px">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+        <defs>
+          <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#141519"/><stop offset="100%" stop-color="#0b0c0e"/>
+          </linearGradient>
+          <linearGradient id="omni2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#00f2fe"/><stop offset="100%" stop-color="#4facfe"/>
+          </linearGradient>
+        </defs>
+        <rect width="512" height="512" rx="115" fill="url(#bg2)"/>
+        <g>
+          <ellipse cx="256" cy="256" rx="140" ry="140" fill="none" stroke="url(#omni2)" stroke-width="14"
+                   stroke-dasharray="600" stroke-dashoffset="50" stroke-linecap="round" transform="rotate(-45 256 256)"/>
+          <ellipse cx="256" cy="256" rx="140" ry="80" fill="none" stroke="url(#omni2)" stroke-width="8"
+                   stroke-opacity="0.6" stroke-dasharray="400 100" transform="rotate(45 256 256)"/>
+          <ellipse cx="256" cy="256" rx="140" ry="40" fill="none" stroke="url(#omni2)" stroke-width="4"
+                   stroke-opacity="0.3" transform="rotate(15 256 256)"/>
+          <circle cx="256" cy="256" r="28" fill="url(#omni2)"/>
+          <circle cx="256" cy="256" r="10" fill="#141519"/>
+          <circle cx="157" cy="157" r="8" fill="#00f2fe"/>
+          <circle cx="355" cy="355" r="8" fill="#4facfe"/>
+          <circle cx="355" cy="157" r="5" fill="#00f2fe" opacity="0.7"/>
+          <circle cx="157" cy="355" r="5" fill="#4facfe" opacity="0.7"/>
+        </g>
+      </svg>
+    </div>
+    <div style="margin-top:14px">144 — список приложений</div>
+  </div>
+
+  <div class="cell">
+    <div class="logo-container xs" style="width:64px;height:64px">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+        <defs>
+          <linearGradient id="bg3" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#141519"/><stop offset="100%" stop-color="#0b0c0e"/>
+          </linearGradient>
+          <linearGradient id="omni3" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#00f2fe"/><stop offset="100%" stop-color="#4facfe"/>
+          </linearGradient>
+        </defs>
+        <rect width="512" height="512" rx="115" fill="url(#bg3)"/>
+        <g>
+          <ellipse cx="256" cy="256" rx="140" ry="140" fill="none" stroke="url(#omni3)" stroke-width="20"
+                   stroke-dasharray="600" stroke-dashoffset="50" stroke-linecap="round" transform="rotate(-45 256 256)"/>
+          <ellipse cx="256" cy="256" rx="140" ry="80" fill="none" stroke="url(#omni3)" stroke-width="13"
+                   stroke-opacity="0.6" stroke-dasharray="400 100" transform="rotate(45 256 256)"/>
+          <circle cx="256" cy="256" r="34" fill="url(#omni3)"/>
+          <circle cx="157" cy="157" r="10" fill="#00f2fe"/>
+          <circle cx="355" cy="355" r="10" fill="#4facfe"/>
+        </g>
+      </svg>
+    </div>
+    <div style="margin-top:14px">64 — упрощённая</div>
+  </div>
+
+</div>
+</body>
+</html>
