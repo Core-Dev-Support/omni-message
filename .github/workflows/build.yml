@@ -115,6 +115,26 @@ jobs:
             cxx-${{ runner.os }}-${{ inputs.build_type || 'release' }}-
             cxx-${{ runner.os }}-
 
+      # CMake/Ninja решает, пересобирать ли объект, по времени модификации:
+      # исходник новее объекта -> пересборка. Но при checkout Git выставляет всем
+      # файлам СВЕЖЕЕ время, а кеш восстанавливает объекты с исходным (старым)
+      # временем. В итоге все 1951 .o пересобирались заново, хотя кеш был 777 МБ
+      # и hit. Поэтому после восстановления кеша делаем исходники ЗАВЕДОМО
+      # старыми: тогда объекты всегда «новее» и компиляция пропускается.
+      - name: Normalize source timestamps
+        run: |
+          set -euo pipefail
+          echo "before:"; find TMessagesProj/jni TMessagesProj/src \
+            -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' -o -name '*.java' -o -name '*.kt' \) \
+            -newermt '2020-01-01' | wc -l
+          find TMessagesProj/jni TMessagesProj/src \
+            -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' -o -name '*.java' -o -name '*.kt' \) \
+            -exec touch -d '2020-01-01 00:00:00' {} +
+          echo "after (должно быть 0):"; find TMessagesProj/jni TMessagesProj/src \
+            -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' -o -name '*.java' -o -name '*.kt' \) \
+            -newermt '2020-01-01' | wc -l
+          echo "объектов в кеше:"; find . -path ./.git -prune -o -name '*.o' -print 2>/dev/null | wc -l
+
       - name: Prepare signing key
         env:
           KEYSTORE_B64: ${{ secrets.OMNI_KEYSTORE_BASE64 }}
