@@ -22,15 +22,41 @@ jobs:
   build:
     name: Assemble APK
     runs-on: ubuntu-latest
-    timeout-minutes: 330
+    # Максимум для GitHub-hosted раннеров — 360 минут.
+    # Нативная сборка 2 ABI с нуля занимает ~1.5 ч, плюс R8/упаковка.
+    timeout-minutes: 355
 
     steps:
-      - name: Checkout (with submodules)
+      # Checkout делаем сами, а не через submodules: recursive. Полные клоны
+      # сабмодулей (ffmpeg, webrtc-стек, boringssl, media3) весят ~7.3 ГБ, а на
+      # раннере только ~14 ГБ. С --depth 1 становится ~2.5 ГБ.
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: false
           fetch-depth: 1
           persist-credentials: true
+
+      - name: Init submodules (shallow)
+        run: |
+          set -euo pipefail
+          git config --global core.longpaths true
+          git submodule update --init --recursive --depth 1 --jobs 4 \
+            || git submodule update --init --recursive --jobs 4
+          echo "checkout size:"; du -sh . 2>/dev/null | tail -1
+
+      # На ubuntu-latest предустановлено ~10 ГБ мусора, который нам не нужен:
+      # Haskell (ghc/ghcup), .NET, Swift, Boost. Удаляем ДО сборки, иначе
+      # нативная часть + упаковка не помещаются ("No space left on device").
+      # Java из /opt/hostedtoolcache НЕ трогаем — он нужен.
+      - name: Free runner disk space
+        run: |
+          df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /usr/local/.ghcup /opt/ghc \
+                      /usr/local/share/boost /usr/share/swift \
+                      /opt/hostedtoolcache/CodeQL 2>/dev/null || true
+          sudo rm -rf /usr/local/lib/android/sdk/ndk/* 2>/dev/null || true
+          echo "after cleanup:"; df -h / | tail -1
 
       - name: Setup JDK 17
         uses: actions/setup-java@v4
@@ -71,15 +97,18 @@ jobs:
             "cmake;3.22.1" \
             "ndk;27.2.12479018"
 
+      # Ключ БЕЗ github.sha: нативные библиотеки зависят только от C/C++ кода.
+      # Правки в Java (.java/.kt) не должны инвалидировать нативный кеш —
+      # иначе каждое изменение интерфейса стоило бы 1.5 часа компиляции.
       - name: Cache native build objects
         uses: actions/cache@v4
         with:
           path: |
             **/.cxx
             TMessagesProj/jni/**/CMakeFiles
-          key: cxx-${{ runner.os }}-${{ hashFiles('TMessagesProj/jni/CMakeLists.txt') }}-${{ github.sha }}
+          key: cxx-${{ runner.os }}-${{ inputs.build_type || 'release' }}-${{ hashFiles('TMessagesProj/jni/CMakeLists.txt', 'TMessagesProj/build.gradle') }}
           restore-keys: |
-            cxx-${{ runner.os }}-${{ hashFiles('TMessagesProj/jni/CMakeLists.txt') }}-
+            cxx-${{ runner.os }}-${{ inputs.build_type || 'release' }}-
             cxx-${{ runner.os }}-
 
       - name: Prepare signing key
@@ -103,48 +132,24 @@ jobs:
             echo "::warning::No OMNI_KEYSTORE_BASE64 secret - built with throwaway dev key. Not distributable."
           fi
 
-      - name: Report disk usage
-        run: df -h / /home/runner 2>/dev/null || true
+      # ВАЖНО: шага «удалить .o файлы» здесь быть НЕ должно.
+      # Удаление объектов CMake инвалидирует задачи buildCMake*, и следующий
+      # assembleAfatRelease запускает полную нативную пересборку с нуля
+      # (~1.5 ч), из-за чего прогон упирался в timeout. Место освобождаем
+      # чисткой мусора раннера и shallow-сабмодулями выше.
 
-      # Раннер ubuntu-latest даёт ~14 ГБ, а нативная сборка 2 ABI съедает почти
-      # всё: 1732 .o + .so по ~330 МБ. Без чистки упаковка падает с
-      # "No space left on device" (видели на прогоне #4).
-      # Стратегия: ждём готовности .so, удаляем объекты CMake, потом держим
-      # Gradle в режиме без сборки лишнего. Повторный запуск не пересобирает
-      # нативное — оно up-to-date.
-      - name: Build native libraries
+      - name: Build APK
         run: |
           chmod +x gradlew
           TYPE="${{ inputs.build_type || 'release' }}"
-          # Важно: у release не buildCMakeRelease, а buildCMakeRelWithDebInfo.
-          case "$TYPE" in
-            release) VARIANT=RelWithDebInfo ;;
-            debug)   VARIANT=Debug ;;
-            *) echo "Unknown build type: $TYPE"; exit 1 ;;
-          esac
-          echo "TYPE=$TYPE" >> "$GITHUB_ENV"
-          echo "Building native: $VARIANT"
-          # shellcheck disable=SC2086
-          ./gradlew --parallel --stacktrace $SIGNING_ARGS \
-            ":TMessagesProj:buildCMake${VARIANT}[armeabi-v7a][tmessages.49]" \
-            ":TMessagesProj:buildCMake${VARIANT}[arm64-v8a][tmessages.49]"
-
-      - name: Free disk space (drop CMake objects)
-        run: |
-          echo "=== before ==="
+          echo "Build type: $TYPE"
           df -h / | tail -1
-          du -sh TMessagesProj/.cxx 2>/dev/null || true
-          find TMessagesProj/.cxx -name "*.o" -delete 2>/dev/null || true
-          find TMessagesProj -path "*CMakeFiles*" -name "*.o" -delete 2>/dev/null || true
-          echo "=== after ==="
-          df -h / | tail -1
-          du -sh TMessagesProj/.cxx 2>/dev/null || true
-
-      - name: Assemble APK
-        run: |
           # shellcheck disable=SC2086
           ./gradlew --parallel --stacktrace $SIGNING_ARGS \
             ":TMessagesProj_App:assembleAfat${TYPE^}"
+          echo "=== disk after build ==="
+          df -h / | tail -1
+          find TMessagesProj_App/build/outputs -name "*.apk" -exec ls -lh {} \;
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
