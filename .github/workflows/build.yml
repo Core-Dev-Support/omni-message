@@ -106,6 +106,26 @@ jobs:
       # Gradle-файла (buildConfigField, версия, флаг) сбрасывала бы весь
       # нативный кеш и добавляла ~25 мин к каждой сборке. Проверено:
       # добавление api_id в buildConfigField стоило лишних 8 минут.
+      # api_id / api_hash Telegram. В коде их нет (репозиторий публичный),
+      # а build.gradle читает их из local.properties через loadSecret.
+      # Если секретов нет — подставятся дефолты апстрима (APP_ID=4):
+      # APK соберётся и запустится, но вход в аккаунт не пройдёт.
+      - name: Write Telegram credentials
+        env:
+          API_ID: ${{ secrets.OMNI_TELEGRAM_API_ID }}
+          API_HASH: ${{ secrets.OMNI_TELEGRAM_API_HASH }}
+        run: |
+          set -euo pipefail
+          if [ -n "$API_ID" ] && [ -n "$API_HASH" ]; then
+            {
+              echo "OMNI_TELEGRAM_API_ID=$API_ID"
+              echo "OMNI_TELEGRAM_API_HASH=$API_HASH"
+            } >> local.properties
+            echo "::notice::api_id injected from secrets"
+          else
+            echo "::warning::No OMNI_TELEGRAM_API_ID/HASH secrets - building with upstream defaults (APP_ID=4). Login will not work."
+          fi
+
       - name: Cache native build objects
         uses: actions/cache@v4
         with:
