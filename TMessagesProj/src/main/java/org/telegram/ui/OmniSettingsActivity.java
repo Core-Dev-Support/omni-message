@@ -8,10 +8,10 @@ import android.view.View;
 import android.widget.FrameLayout;
 
 import org.telegram.messenger.R;
+import org.telegram.messenger.Utilities;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
-import org.telegram.ui.Cells.SettingCell;
 import org.telegram.ui.Components.IconBackgroundColors;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.UItem;
@@ -63,7 +63,10 @@ public class OmniSettingsActivity extends BaseFragment {
 
         FrameLayout contentView = new FrameLayout(context);
 
-        listView = new UniversalRecyclerView(this, this::fillItems, this::onItemClick, null);
+        listView = new UniversalRecyclerView(this, this::fillItems, (item, view, position, x, y) -> {
+            onItemClick(item);
+            return false;
+        }, null);
         listView.setSections();
         listView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray, resourceProvider));
         contentView.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
@@ -85,11 +88,7 @@ public class OmniSettingsActivity extends BaseFragment {
 
         // --- Обход блокировок ---------------------------------------------
         items.add(UItem.asHeader(getString(R.string.OmniCategoryNetwork)));
-        items.add(SettingCell.Factory.of(ID_NETWORK,
-                IconBackgroundColors.BLUE_DEEP.top, IconBackgroundColors.BLUE_DEEP.bottom,
-                R.drawable.settings_features,
-                getString(R.string.OmniNetworkTitle),
-                OmniConfig.proxyEnabled ? getString(R.string.OmniNetworkProxyOn) : getString(R.string.OmniNetworkOff)));
+        items.add(UItem.asCheck(ID_NETWORK, getString(R.string.OmniNetworkTitle)).setChecked(OmniConfig.proxyEnabled));
         items.add(UItem.asShadow(getString(R.string.OmniNetworkInfo)));
 
         // --- Оформление ----------------------------------------------------
