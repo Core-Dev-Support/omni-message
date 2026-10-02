@@ -32,8 +32,12 @@ dependencyResolutionManagement {
 buildCache {
     local {
         directory = new File(rootDir, ".gradle-build-cache")
-        // Держим кеш разумным: 20 ГБ — с запасом на крупные модули Telegram.
-        maxSize = 20L * 1024 * 1024 * 1024
+        // ВНИМАНИЕ: у DirectoryBuildCache нет свойства maxSize — оно есть
+        // только у файлового кеша ~/.gradle/caches/build-cache-1. Попытка
+        // задать maxSize здесь роняет конфигурацию:
+        // "Could not set unknown property 'maxSize'".
+        // Размер каталога поэтому не ограничен настройкой — за этим следит
+        // removeUnusedEntriesAfterDays и вытеснение кешей в GitHub Actions.
         removeUnusedEntriesAfterDays = 14
     }
 }
