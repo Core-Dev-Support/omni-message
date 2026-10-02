@@ -63,10 +63,10 @@ public class OmniSettingsActivity extends BaseFragment {
 
         FrameLayout contentView = new FrameLayout(context);
 
-        listView = new UniversalRecyclerView(this, this::fillItems, (item, view, position, x, y) -> {
-            onItemClick(item);
-            return false;
-        }, null);
+        // onClick — Utilities.Callback5<UItem, View, Integer, Float, Float>,
+        // он void, поэтому возвращать из лямбды нечего (в отличие от
+        // onLongClick, который Callback5Return и требует boolean).
+        listView = new UniversalRecyclerView(this, this::fillItems, (item, view, position, x, y) -> onItemClick(item), null);
         listView.setSections();
         listView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray, resourceProvider));
         contentView.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));

@@ -1,6 +1,8 @@
 # --- Upstream (DrKLO/Telegram) ---
 .idea/
 .gradle/
+# Gradle Build Cache (включён в settings.gradle, переживает прогоны в CI)
+.gradle-build-cache/
 build/
 obj/
 *.iml

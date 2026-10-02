@@ -136,6 +136,24 @@ jobs:
             cxx-${{ runner.os }}-${{ inputs.build_type || 'release' }}-
             cxx-${{ runner.os }}-
 
+      # Кеш РЕЗУЛЬТАТА компиляции (включён в settings.gradle через buildCache).
+      # Это то, что реально ускоряет сборку: javac в TMessagesProj — ~5000
+      # файлов и ~22 минуты холодной компиляции. Раньше кешировались только
+      # скачанные библиотеки, поэтому каждый прогон компилировал всё заново.
+      - name: Cache Gradle build outputs
+        uses: actions/cache@v4
+        with:
+          path: .gradle-build-cache
+          # Ключ по run_id: содержимое кеша меняется почти каждый прогон,
+          # поэтому стабильный ключ не подошёл бы — actions/cache не
+          # перезаписывает существующую запись, и кеш «замёрз» бы.
+          # restore-keys подхватывает предыдущий прогон, Gradle дописывает
+          # изменившееся. Старые записи GitHub вытесняет по LRU.
+          key: gbc-${{ runner.os }}-${{ inputs.build_type || 'release' }}-${{ github.run_id }}
+          restore-keys: |
+            gbc-${{ runner.os }}-${{ inputs.build_type || 'release' }}-
+            gbc-${{ runner.os }}-
+
       # Шаг нормализации timestamps УДАЛЁН как бесполезный: проверен на прогоне
       # #9 (56m36s) — объекты в кеше были (6903 шт), но CMake всё равно
       # пересобрал всё. Причина была не в mtime, а в лишних ABI.

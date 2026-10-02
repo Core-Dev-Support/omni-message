@@ -17,5 +17,26 @@ dependencyResolutionManagement {
     }
 }
 
+// Gradle Build Cache: кеширует РЕЗУЛЬТАТ компиляции (javac, R8, ресурсы),
+// а не только скачанные зависимости.
+//
+// Зачем: TMessagesProj — это ~5000 Java-файлов, и холодный javac занимает
+// ~22 минуты из ~33 минут сборки. Раньше кешировались только библиотеки,
+// поэтому каждый запуск в CI компилировал всё заново. С этим кешем Gradle
+// пропускает задачи, входы которых не изменились — при правке одного файла
+// компилируется только он.
+//
+// Каталог переживает прогоны за счёт actions/cache в .github/workflows/build.yml
+// (шаг "Cache Gradle build outputs"). Локально тоже полезен: повторная
+// сборка на ноутбуке становится минутной.
+buildCache {
+    local {
+        directory = new File(rootDir, ".gradle-build-cache")
+        // Держим кеш разумным: 20 ГБ — с запасом на крупные модули Telegram.
+        maxSize = 20L * 1024 * 1024 * 1024
+        removeUnusedEntriesAfterDays = 14
+    }
+}
+
 gradle.ext.androidxMediaModulePrefix = 'TMessagesProj_Modules:media3:media-'
 apply from: file("TMessagesProj_Modules/media/core_settings.gradle")
