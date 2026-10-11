@@ -7,6 +7,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.DialogObject;
+import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.MessagesStorage;
 import org.telegram.messenger.UserObject;
@@ -72,7 +73,7 @@ public class OmniDeletedStore {
                     if (msg == null) {
                         continue;
                     }
-                    String text = extractText(msg);
+                    String text = extractText(account, msg);
                     if (TextUtils.isEmpty(text)) {
                         continue;
                     }
@@ -89,10 +90,19 @@ public class OmniDeletedStore {
         }
     }
 
-    private static String extractText(TLRPC.Message msg) {
+    private static String extractText(int account, TLRPC.Message msg) {
         String text = msg.message;
-        if (TextUtils.isEmpty(text) && !TextUtils.isEmpty(msg.caption)) {
-            text = msg.caption;
+        if (TextUtils.isEmpty(text)) {
+            // Подпись к медиа в этой версии TL лежит не в Message, а разбирается
+            // в MessageObject.caption — строим лёгкий объект без layout.
+            try {
+                MessageObject obj = new MessageObject(account, msg, false, false);
+                if (obj.caption != null) {
+                    text = obj.caption.toString();
+                }
+            } catch (Exception e) {
+                FileLog.e(e);
+            }
         }
         if (TextUtils.isEmpty(text)) {
             if (msg.media != null && !(msg.media instanceof TLRPC.TL_messageMediaEmpty)) {
