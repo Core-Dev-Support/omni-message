@@ -82,6 +82,9 @@ public class OmniConnection implements NotificationCenter.NotificationCenterDele
     private long waitingSince = 0;
     private String lastOmniProxyHost = null;
     private boolean started = false;
+    // Опрос при старте — один раз, на первом событии соединения (натив уже
+    // инициализирован; в onCreate дёргать сеть рано). Дальше — сторож.
+    private boolean bootRefreshed = false;
 
     private OmniConnection() {
     }
@@ -93,25 +96,25 @@ public class OmniConnection implements NotificationCenter.NotificationCenterDele
         started = true;
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.didUpdateConnectionState);
         lastOmniProxyHost = prefs().getString("last_host", null);
-        // Из коробки (PLAN.md D2): если автопрокси включён, а активного прокси
-        // нет — сразу тянем список и включаемся, не дожидаясь тумблера.
-        if (OmniConfig.proxyEnabled) {
-            boolean hasActive = false;
-            try {
-                hasActive = MessagesController.getGlobalMainSettings().getBoolean("proxy_enabled", false)
-                        && SharedConfig.currentProxy != null;
-            } catch (Exception e) {
-                FileLog.e(e);
-            }
-            if (!hasActive) {
-                refreshAndEnable(null);
-            }
-        }
+        // Сам опрос — на первом событии соединения (см. ниже): сохранённый
+        // прокси апстрим поднимает сам в ConnectionsManager.init(), а свежий
+        // список подтянем, как только натив оживёт. В onCreate дёргать рано.
     }
 
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
         if (id != NotificationCenter.didUpdateConnectionState) {
+            return;
+        }
+        // При открытии приложения: опросить, взять ключи, вставить и подключить
+        // самому, без участия человека. Сохранённый прокси уже поднят апстримом;
+        // refreshAndEnable перепроверит список и переключит на быстрейший.
+        // Не ломает рабочее состояние: при пустом/недоступном списке ничего не трогает.
+        if (!bootRefreshed) {
+            bootRefreshed = true;
+            if (OmniConfig.proxyEnabled) {
+                refreshAndEnable(null);
+            }
             return;
         }
         if (!OmniConfig.proxyEnabled) {
