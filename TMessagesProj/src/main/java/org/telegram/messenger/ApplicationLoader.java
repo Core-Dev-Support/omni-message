@@ -355,6 +355,15 @@ public class ApplicationLoader extends Application {
         LauncherIconController.tryFixLauncherIconIfNeeded();
         ProxyRotationController.init();
 
+        // Omni Message: сторож связи (PLAN.md D). Только подписка на события
+        // и чтение своих префов — тяжёлая работа (fetch/пинг) идёт в фоне
+        // и только когда включён «Автопрокси».
+        try {
+            org.telegram.ui.OmniConnection.getInstance().start();
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+
         //if (BuildConfig.DEBUG_PRIVATE_VERSION) {
         //    Choreographer60FpsContent.getInstance().addFrameCallback(debugEverySecondChecks, 1);
         //}

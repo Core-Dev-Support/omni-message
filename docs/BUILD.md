@@ -6,14 +6,17 @@
 
 ### Вариант 1 — GitHub Actions (основной)
 
-1. **Settings → Secrets and variables → Actions → New repository secret**, создай 4 секрета:
+1. **Settings → Secrets and variables → Actions → New repository secret**, создай секреты:
 
-| Секрет | Значение |
-|---|---|
-| `OMNI_KEYSTORE_BASE64` | base64 от release.keystore (см. ниже) |
-| `RELEASE_STORE_PASSWORD` | пароль keystore |
-| `RELEASE_KEY_ALIAS` | алиас ключа |
-| `RELEASE_KEY_PASSWORD` | пароль ключа |
+| Секрет | Значение | Обязателен |
+|---|---|---|
+| `OMNI_KEYSTORE_BASE64` | base64 от release.keystore (см. ниже) | да (иначе временный ключ) |
+| `RELEASE_STORE_PASSWORD` | пароль keystore | да |
+| `RELEASE_KEY_ALIAS` | алиас ключа | да |
+| `RELEASE_KEY_PASSWORD` | пароль ключа | да |
+| `OMNI_TELEGRAM_API_ID` | api_id с my.telegram.org | да (иначе вход не работает) |
+| `OMNI_TELEGRAM_API_HASH` | api_hash с my.telegram.org | да |
+| `OMNI_PROXY_URL` | URL подписки на MTProto-прокси `{proxies:[{host,port,secret}]}` | нет (без него «Автопрокси» нечего включать) |
 
 Получить base64 keystore:
 

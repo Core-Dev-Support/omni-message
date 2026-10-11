@@ -160,6 +160,8 @@ android {
         // позволяют собрать и запустить APK, но не пускают в аккаунт.
         buildConfigField "int", "APP_ID", apiId
         buildConfigField "String", "APP_HASH", "\"" + apiHash + "\""
+        // URL подписки на прокси (PLAN.md D3). Пустой — только ручные прокси.
+        buildConfigField "String", "PROXY_URL", "\"" + proxyUrl + "\""
 
         externalNativeBuild {
             cmake {

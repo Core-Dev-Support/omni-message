@@ -44,6 +44,7 @@ public class OmniSettingsActivity extends BaseFragment {
     public static final int ID_ANTI_RECALL = 104;
     public static final int ID_DELETED_CLEAR = 105;
     public static final int ID_NETWORK = 200;
+    public static final int ID_KILL_SWITCH = 201;
     public static final int ID_APP_LOCK = 300;
 
     private UniversalRecyclerView listView;
@@ -106,10 +107,19 @@ public class OmniSettingsActivity extends BaseFragment {
             items.add(UItem.asShadow(getString(R.string.OmniDeletedInfo)));
         }
 
-        // --- Обход блокировок ---------------------------------------------
+        // --- Обход блокировок (PLAN.md D, omni-connection) -------------------
         items.add(UItem.asHeader(getString(R.string.OmniCategoryNetwork)));
         items.add(UItem.asCheck(ID_NETWORK, getString(R.string.OmniNetworkTitle)).setChecked(OmniConfig.proxyEnabled));
-        items.add(UItem.asShadow(getString(R.string.OmniNetworkInfo)));
+        items.add(UItem.asCheck(ID_KILL_SWITCH, getString(R.string.OmniKillSwitch)).setChecked(OmniConfig.proxyKillSwitch));
+        String netStatus = "";
+        try {
+            if (getParentActivity() != null) {
+                netStatus = OmniConnection.getInstance().getStatusText(getParentActivity());
+            }
+        } catch (Exception e) {
+            netStatus = "";
+        }
+        items.add(UItem.asShadow(getString(R.string.OmniNetworkInfo) + (netStatus.isEmpty() ? "" : "\n" + netStatus)));
 
         // --- Оформление ----------------------------------------------------
         items.add(UItem.asHeader(getString(R.string.OmniCategoryAppearance)));
@@ -141,9 +151,13 @@ public class OmniSettingsActivity extends BaseFragment {
                 OmniConfig.appLockEnabled = !OmniConfig.appLockEnabled;
                 break;
             case ID_NETWORK:
-                // Категория «Обход блокировок» (этап D). Отдельный экран
-                // появится вместе с моду omni-connection.
-                return;
+                // Включаем сторож: fetch списка → пинг → лучший прокси.
+                // Сама работа в фоне (OmniConnection), экран только обновится.
+                OmniConnection.getInstance().setAutoProxyEnabled(!OmniConfig.proxyEnabled);
+                break;
+            case ID_KILL_SWITCH:
+                OmniConfig.proxyKillSwitch = !OmniConfig.proxyKillSwitch;
+                break;
             default:
                 return;
         }

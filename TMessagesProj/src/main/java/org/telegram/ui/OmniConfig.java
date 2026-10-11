@@ -34,6 +34,8 @@ public class OmniConfig {
     // --- Обход блокировок (этап D) ---------------------------------------
     public static boolean proxyEnabled = false;
     public static boolean dnsOverHttps = false;
+    /** Kill-switch: пока включён, модуль связи никогда сам не снимает прокси. */
+    public static boolean proxyKillSwitch = false;
 
     // --- Оформление / безопасность (этапы C7, E) -------------------------
     public static boolean appLockEnabled = false;
@@ -78,6 +80,7 @@ public class OmniConfig {
 
         proxyEnabled = p.getBoolean("proxyEnabled", false);
         dnsOverHttps = p.getBoolean("dnsOverHttps", false);
+        proxyKillSwitch = p.getBoolean("proxyKillSwitch", false);
 
         appLockEnabled = p.getBoolean("appLockEnabled", false);
 
@@ -97,6 +100,7 @@ public class OmniConfig {
         e.putBoolean("antiRecall", antiRecall);
         e.putBoolean("proxyEnabled", proxyEnabled);
         e.putBoolean("dnsOverHttps", dnsOverHttps);
+        e.putBoolean("proxyKillSwitch", proxyKillSwitch);
         e.putBoolean("appLockEnabled", appLockEnabled);
         e.apply();
     }

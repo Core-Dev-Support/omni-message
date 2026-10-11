@@ -20,7 +20,10 @@
     <string name="OmniNetworkTitle">Automatic proxy</string>
     <string name="OmniNetworkProxyOn">Enabled</string>
     <string name="OmniNetworkOff">Disabled</string>
-    <string name="OmniNetworkInfo">Automatically route the app through an MTProto proxy when the direct connection fails. Coming soon.</string>
+    <string name="OmniNetworkConnecting">Connecting…</string>
+    <string name="OmniNetworkDirect">Direct connection</string>
+    <string name="OmniNetworkInfo">Fetches an MTProto proxy list over HTTPS, picks the fastest by ping and routes all app traffic through it. Rotates to the next one if the connection hangs. Without a configured list URL there is nothing to enable.</string>
+    <string name="OmniKillSwitch">Kill-switch: proxy only</string>
     <string name="OmniAppLock">App lock</string>
     <string name="OmniAppearanceInfo">PIN, biometrics and screenshot blocking. Coming soon.</string>
     <string name="OmniDeletedTitle">Deleted by others</string>

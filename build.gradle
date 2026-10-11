@@ -104,6 +104,16 @@ ext.resolveApiHash = {
 ext.apiId = resolveApiId()
 ext.apiHash = resolveApiHash()
 
+// URL подписки на MTProto-прокси для omni-connection (PLAN.md D3).
+// Пустой по умолчанию: без серверной части включать нечего, тумблер
+// «Автопрокси» честно пишет «нет списка». Организация задаёт через
+// local.properties / secrets.properties / env / -POMNI_PROXY_URL=...
+ext.resolveProxyUrl = {
+    def v = loadSecret('OMNI_PROXY_URL')
+    return (v && !(v ==~ /\s*/)) ? v.trim() : ''
+}
+ext.proxyUrl = resolveProxyUrl()
+
 
 // Плагин google-services падает, если в google-services.json нет клиента
 // с package_name == applicationId. Своего Firebase-проекта у нас пока нет
