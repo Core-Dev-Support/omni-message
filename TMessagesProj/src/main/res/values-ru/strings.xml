@@ -262,4 +262,34 @@
     <string name="RemindTodayAt">\'Отправить сегодня в\' HH:mm</string>
     <string name="RemindDayAt">\'Отправить\' d MMM \'в\' HH:mm</string>
     <string name="RemindDayYearAt">\'Напомнить\' d MMM yyyy \'в\' HH:mm</string>
+
+    <!-- Omni Message: наши ключи (EN — в values/strings.xml). Ключей Omni* нет в
+         облачном ленгпаке Telegram, поэтому берутся локальные значения. -->
+    <string name="OmniAppTitle">Omni Message</string>
+    <string name="OmniSettingsTitle">Настройки Omni Message</string>
+    <string name="OmniSettingsInfo">Приватность, связь и оформление</string>
+    <string name="OmniSettingsAbout">Omni Message — неофициальный клиент Telegram. Не связан с Telegram FZ-LLC.</string>
+    <string name="OmniSettingsCategoryPrivacy">Приватность</string>
+    <string name="OmniSettingsCategoryNetwork">Связь</string>
+    <string name="OmniSettingsCategoryAppearance">Оформление</string>
+    <string name="OmniCategoryPrivacy">Приватность</string>
+    <string name="OmniCategoryNetwork">Заблокированные сети</string>
+    <string name="OmniCategoryAppearance">Оформление и защита</string>
+    <string name="OmniGhostRead">Скрывать прочтения</string>
+    <string name="OmniGhostOnline">Скрывать онлайн-статус</string>
+    <string name="OmniGhostTyping">Скрывать набор текста</string>
+    <string name="OmniAntiRecall">Анти-отзыв (сохранять удалённое)</string>
+    <string name="OmniPrivacyWarning">Собеседники не увидят ваши прочтения, онлайн-статус и набор текста. Некоторые могут заметить, что сообщения не отмечаются прочитанными.</string>
+    <string name="OmniNetworkTitle">Автопрокси</string>
+    <string name="OmniNetworkProxyOn">Включено</string>
+    <string name="OmniNetworkOff">Выключено</string>
+    <string name="OmniNetworkConnecting">Подключение…</string>
+    <string name="OmniNetworkDirect">Прямое соединение</string>
+    <string name="OmniNetworkInfo">Подтягивает список MTProto-прокси по HTTPS, выбирает быстрейший по пингу и ведёт через него весь трафик приложения. При зависании переключается на следующий. Без настроенного адреса списка включать нечего.</string>
+    <string name="OmniKillSwitch">Kill-switch: только прокси</string>
+    <string name="OmniAppLock">Блокировка приложения</string>
+    <string name="OmniAppearanceInfo">PIN, биометрия и запрет скриншотов. Скоро.</string>
+    <string name="OmniDeletedTitle">Удалённые собеседником</string>
+    <string name="OmniDeletedClear">Очистить архив</string>
+    <string name="OmniDeletedInfo">Удалённые собеседником сообщения сохраняются здесь (только текст, последние 200). Медиа не сохраняется.</string>
 </resources>

@@ -32,7 +32,10 @@ public class OmniConfig {
     public static boolean antiRecall = false;
 
     // --- Обход блокировок (этап D) ---------------------------------------
-    public static boolean proxyEnabled = false;
+    // proxyEnabled по умолчанию ВКЛ: «установил — работает» (PLAN.md D).
+    // Без списка прокси включение ни на что не влияет — статус честно
+    // показывает прямое соединение. Выключается тумблером навсегда.
+    public static boolean proxyEnabled = true;
     public static boolean dnsOverHttps = false;
     /** Kill-switch: пока включён, модуль связи никогда сам не снимает прокси. */
     public static boolean proxyKillSwitch = false;
@@ -78,7 +81,7 @@ public class OmniConfig {
         ghostTyping = p.getBoolean("ghostTyping", false);
         antiRecall = p.getBoolean("antiRecall", false);
 
-        proxyEnabled = p.getBoolean("proxyEnabled", false);
+        proxyEnabled = p.getBoolean("proxyEnabled", true);
         dnsOverHttps = p.getBoolean("dnsOverHttps", false);
         proxyKillSwitch = p.getBoolean("proxyKillSwitch", false);
 

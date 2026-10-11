@@ -677,6 +677,11 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             items.add(UItem.asShadow(null));
         }
 
+        // Omni Message: наш пункт — первым и отдельно от встроенных (по образцу
+        // модов: CherryGram/AyuGram выносят свои настройки отдельным блоком).
+        items.add(SettingCell.Factory.of(100, 0xFF1FBFA8, 0xFF148F7F, R.drawable.settings_privacy, getString(R.string.OmniSettingsTitle), getString(R.string.OmniSettingsInfo)));
+        items.add(UItem.asShadow(null));
+
         if (accountNumbers.size() > 0) {
             items.add(UItem.asHeader(getString(R.string.SettingsAccounts)));
             for (int i = 0; i < accountNumbers.size(); ++i) {
@@ -694,11 +699,6 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         items.add(SettingCell.Factory.of(8, IconBackgroundColors.CYAN.top, IconBackgroundColors.CYAN.bottom, R.drawable.settings_devices, getString(R.string.SettingsDevices), getString(R.string.SettingsDevicesInfo)));
         items.add(SettingCell.Factory.of(9, IconBackgroundColors.ORANGE_DEEP.top, IconBackgroundColors.ORANGE_DEEP.bottom, R.drawable.settings_power, getString(R.string.SettingsPowerSaving), getString(R.string.SettingsPowerSavingInfo)));
         items.add(SettingCell.Factory.of(10, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom, R.drawable.settings_language, getString(R.string.SettingsLanguage), LocaleController.getCurrentLanguageName()));
-
-        // Omni Message: единая точка входа для всех наших фич (PLAN.md B6).
-        // По образцу AyuGram / CherryGram: один пункт в меню, внутри — категории
-        // «Приватность», «Обход блокировок», «Оформление», «Фишки».
-        items.add(SettingCell.Factory.of(100, 0xFF1FBFA8, 0xFF148F7F, R.drawable.settings_privacy, getString(R.string.OmniSettingsTitle), getString(R.string.OmniSettingsInfo)));
 
         items.add(UItem.asShadow(null));
 

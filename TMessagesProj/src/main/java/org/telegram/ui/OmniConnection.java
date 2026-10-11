@@ -92,6 +92,20 @@ public class OmniConnection implements NotificationCenter.NotificationCenterDele
         started = true;
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.didUpdateConnectionState);
         lastOmniProxyHost = prefs().getString("last_host", null);
+        // Из коробки (PLAN.md D2): если автопрокси включён, а активного прокси
+        // нет — сразу тянем список и включаемся, не дожидаясь тумблера.
+        if (OmniConfig.proxyEnabled) {
+            boolean hasActive = false;
+            try {
+                hasActive = MessagesController.getGlobalMainSettings().getBoolean("proxy_enabled", false)
+                        && SharedConfig.currentProxy != null;
+            } catch (Exception e) {
+                FileLog.e(e);
+            }
+            if (!hasActive) {
+                refreshAndEnable(null);
+            }
+        }
     }
 
     @Override
@@ -269,12 +283,45 @@ public class OmniConnection implements NotificationCenter.NotificationCenterDele
         }
     }
 
-    // --- Список: сеть → кеш → пусто ---------------------------------------
+    // --- Список: сеть → кеш → встроенный fallback ---------------------------
+
+    /**
+     * Встроенный fallback (PLAN.md D2): доверенные MTProto-прокси организации.
+     * Формат: {host, port, secret}. Секрет — ee/dd + hex (TLS-маскировка).
+     * Сейчас пусто: адреса вписывает владелец инфраструктуры (например, mtg
+     * на тех же серверах, что раздают VLESS-ключи Mirage). Чужие публичные
+     * прокси сюда не кладём: через них идёт весь трафик, доверие обязательно.
+     */
+    static List<ProxyCandidate> bundledFallback() {
+        String[][] raw = {
+                // {"proxy1.example.com", "443", "ee00000000000000000000000000000000"},
+                // {"proxy2.example.com", "443", "dd00000000000000000000000000000000"},
+        };
+        ArrayList<ProxyCandidate> out = new ArrayList<>();
+        for (String[] r : raw) {
+            if (r.length < 3) {
+                continue;
+            }
+            ProxyCandidate c = new ProxyCandidate();
+            c.host = r[0];
+            try {
+                c.port = Integer.parseInt(r[1]);
+            } catch (Exception e) {
+                continue;
+            }
+            c.secret = r[2];
+            if (!c.host.isEmpty() && c.port > 0 && c.port < 65536 && !c.secret.isEmpty()) {
+                out.add(c);
+            }
+        }
+        return out;
+    }
 
     private List<ProxyCandidate> fetchList() {
         String url = proxyListUrl();
         if (url == null || url.isEmpty()) {
-            return cachedList();
+            List<ProxyCandidate> bundled = bundledFallback();
+            return bundled.isEmpty() ? cachedList() : bundled;
         }
         try {
             JSONObject payload = new JSONObject();

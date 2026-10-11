@@ -3514,7 +3514,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 // Omni Message: в шапке пишем название нашего мессенджера обычным текстом.
                 // Раньше сюда ставился ImageSpan с вектором telegram_logo_2 (надпись "Telegram"),
                 // поэтому переименование AppName в strings.xml на шапку не влияло.
-                actionBar.setTitle(getString(R.string.AppName), statusDrawable);
+                // Ключ задан явно ("OmniAppTitle"): ключ AppName есть в облачном ленгпаке,
+                // и серверное значение перекрыло бы локальное обратно на "Telegram".
+                actionBar.setTitle(LocaleController.getString("OmniAppTitle", R.string.OmniAppTitle), statusDrawable);
                 updateStatus(UserConfig.getInstance(currentAccount).getCurrentUser(), false);
             }
             if (folderId == 0) {

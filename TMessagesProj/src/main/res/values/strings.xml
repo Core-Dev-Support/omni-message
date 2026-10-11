@@ -2,6 +2,11 @@
 <resources>
     <string name="AppName">Omni Message</string>
 
+    <!-- OmniAppTitle: дублирует AppName, но другим ключом. Ключ AppName есть в
+         облачном ленгпаке Telegram, и серверное значение ("Telegram") перекрывает
+         локальное. Этого ключа в облаке нет — шапка всегда показывает наше имя. -->
+    <string name="OmniAppTitle">Omni Message</string>
+
     <!-- Omni Message: настройки (PLAN.md B6) -->
     <string name="OmniSettingsTitle">Omni Message Settings</string>
     <string name="OmniSettingsInfo">Privacy, connectivity and customization</string>
