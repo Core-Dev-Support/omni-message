@@ -30,26 +30,27 @@ import java.util.concurrent.TimeUnit;
 /**
  * Omni Message — модуль связи для сетей с блокировками (PLAN.md D, v1).
  *
- * Как работает:
- *  - список MTProto-прокси подтягивается по HTTPS POST {deviceId} с подписного
- *    URL (паттерн — как раздача бесплатных ключей в NAUA Security Mirage:
- *    тот же транспорт, только вместо Xray-конфига отдаётся
- *    {proxies:[{host,port,secret}]}), кешируется на 6 часов;
- *  - при включении «Автопрокси» каждый кандидат пингуется через
- *    ConnectionsManager.checkProxy, выбирается быстрейший и включается
- *    штатным путём (SharedConfig.currentProxy + setProxySettings) — т.е.
- *    весь трафик приложения, включая CDN/медиа, идёт через него, потому что
- *    прокси ставится на уровне tgnet, а не отдельного сокета;
- *  - сторож: если соединение висит в WaitingForNetwork дольше 15 c —
- *    ротация на следующий кандидат из кеша;
- *  - kill-switch v1: пока включён, модуль никогда сам не снимает прокси
- *    (никакого тихого возврата на прямое соединение).
+ * Флоу получения бесплатных прокси — 1 в 1 как раздача бесплатных ключей в
+ * NAUA Security Mirage (а там — как у vpGram):
+ *   Mirage                                  Omni
+ *   -------------------------------------   ----------------------------------
+ *   app-config.json (GitHub→GCS→Yandex)      omni/app-config.json (зеркала)
+ *   POST /auth/register {deviceId}          то же, бэкофф 1/2/4 c, 3 попытки
+ *   GET .../download-anonymous-key          то же (опционально)
+ *   POST {deviceId} → Xray-конфиг           POST /proxy/config → {proxies}
+ *   free_panel_cache.json, TTL 10 мин       кеш prefs, TTL 6 ч
+ *   захардкоженные fallback-серверы         bundledFallback()
+ *
+ * Дальше своё: каждый кандидат пингуется через ConnectionsManager.checkProxy,
+ * быстрейший включается штатным путём (SharedConfig.currentProxy +
+ * setProxySettings) — весь трафик tgnet, включая CDN, идёт через него.
+ * Сторож: висение в WaitingForNetwork дольше 15 c — ротация.
+ * Kill-switch v1: модуль никогда сам не снимает прокси.
  *
  * Честные ограничения v1:
- *  - без заданного OMNI_PROXY_URL (см. BuildConfig/gradle.properties) список
- *    пуст и включается нечего — тумблер честно пишет «нет списка»;
- *  - DoH/DoT (D4), подпись списка Ed25519 (D3), свои серверы (D6) — позже;
- *  - звонки через relay (D7) — позже.
+ *  - без развёрнутого сервера (см. docs/PROXY_SERVER.md) и без встроенного
+ *    fallback список пуст — тумблер честно пишет «нет списка»;
+ *  - DoH/DoT (D4), подпись списка Ed25519 (D3), звонки через relay (D7) — позже.
  */
 public class OmniConnection implements NotificationCenter.NotificationCenterDelegate {
 
@@ -318,31 +319,20 @@ public class OmniConnection implements NotificationCenter.NotificationCenterDele
     }
 
     private List<ProxyCandidate> fetchList() {
-        String url = proxyListUrl();
-        if (url == null || url.isEmpty()) {
+        String api = resolveApiBase();
+        if (api.isEmpty()) {
+            // Сервера нет: только встроенный fallback и кеш.
             List<ProxyCandidate> bundled = bundledFallback();
             return bundled.isEmpty() ? cachedList() : bundled;
         }
+        String token = register(api);
         try {
             JSONObject payload = new JSONObject();
             payload.put("deviceId", deviceId());
+            payload.put("token", token);
             payload.put("app", "omni-message");
             payload.put("v", 1);
-            byte[] body = payload.toString().getBytes(StandardCharsets.UTF_8);
-            HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/json");
-            conn.setRequestProperty("User-Agent", "OmniMessage/1.0");
-            conn.setDoOutput(true);
-            try (OutputStream os = conn.getOutputStream()) {
-                os.write(body);
-            }
-            if (conn.getResponseCode() != 200) {
-                return cachedList();
-            }
-            String resp = readAll(conn.getInputStream());
+            String resp = httpPost(api + "/proxy/config", payload.toString(), anonKey(api));
             List<ProxyCandidate> list = parseList(new JSONObject(resp));
             if (!list.isEmpty()) {
                 cacheRaw(resp);
@@ -354,6 +344,105 @@ public class OmniConnection implements NotificationCenter.NotificationCenterDele
             }
             return cachedList();
         }
+    }
+
+    // --- Bootstrap: откуда брать api_base (паттерн Mirage) -------------------
+    // Mirage: AppConfigEndpoints GitHub→GCS→Yandex (app-config.json).
+    // У нас: зеркала ниже + прямой override через OMNI_PROXY_URL (Secrets).
+    private static final String[] CONFIG_MIRRORS = {
+            "https://raw.githubusercontent.com/Core-Dev-Support/omni-message/main/omni/app-config.json"
+    };
+    private static final long API_BASE_TTL_MS = 24 * 60 * 60 * 1000L;
+
+    private String resolveApiBase() {
+        // 1. Прямой override организацией — пропускаем bootstrap.
+        String direct = proxyListUrl();
+        if (direct != null && !direct.isEmpty()) {
+            return stripSlash(direct);
+        }
+        // 2. Кеш (сутки).
+        String cached = prefs().getString("api_base", "");
+        long at = prefs().getLong("api_base_at", 0);
+        if (!cached.isEmpty() && System.currentTimeMillis() - at < API_BASE_TTL_MS) {
+            return cached;
+        }
+        // 3. Bootstrap с зеркал.
+        for (String mirror : CONFIG_MIRRORS) {
+            try {
+                String body = httpGet(mirror);
+                String base = new JSONObject(body).optString("api_base_url", "").trim();
+                if (!base.isEmpty()) {
+                    base = stripSlash(base);
+                    prefs().edit().putString("api_base", base).putLong("api_base_at", System.currentTimeMillis()).apply();
+                    return base;
+                }
+            } catch (Exception e) {
+                // следующее зеркало
+            }
+        }
+        return "";
+    }
+
+    private static String stripSlash(String s) {
+        while (s.endsWith("/")) {
+            s = s.substring(0, s.length() - 1);
+        }
+        return s;
+    }
+
+    // --- Регистрация девайса (паттерн Mirage: registerOrAuth, бэкофф 1/2/4) ---
+
+    private String register(String apiBase) {
+        // Токен кешируем на сутки (пустой — тоже значение: сервер в open mode).
+        String token = prefs().getString("api_token", null);
+        long at = prefs().getLong("api_token_at", 0);
+        if (token != null && System.currentTimeMillis() - at < API_BASE_TTL_MS) {
+            return token;
+        }
+        token = "";
+        long[] backoff = {1000, 2000, 4000};
+        for (long wait : backoff) {
+            try {
+                JSONObject payload = new JSONObject();
+                payload.put("deviceId", deviceId());
+                payload.put("app", "omni-message");
+                payload.put("v", 1);
+                String resp = httpPost(apiBase + "/auth/register", payload.toString(), null);
+                token = new JSONObject(resp).optString("token", "");
+                break;
+            } catch (Exception e) {
+                if (BuildVars.LOGS_ENABLED) {
+                    FileLog.d("omni proxy register failed, retry in " + wait + "ms: " + e);
+                }
+                try {
+                    Thread.sleep(wait);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        prefs().edit().putString("api_token", token).putLong("api_token_at", System.currentTimeMillis()).apply();
+        return token;
+    }
+
+    // --- Анонимный ключ (паттерн Mirage: download-anonymous-key, опционально) --
+
+    private String anonKey(String apiBase) {
+        String key = prefs().getString("anon_key", null);
+        long at = prefs().getLong("anon_key_at", 0);
+        if (key != null && System.currentTimeMillis() - at < API_BASE_TTL_MS) {
+            return key;
+        }
+        key = "";
+        try {
+            String resp = httpGet(apiBase + "/client-api/v1/download-anonymous-key");
+            key = new JSONObject(resp).optString("key", "");
+        } catch (Exception e) {
+            // Сервер без ключей — норма, работаем без заголовка.
+        }
+        prefs().edit().putString("anon_key", key).putLong("anon_key_at", System.currentTimeMillis()).apply();
+        return key;
     }
 
     private List<ProxyCandidate> parseList(JSONObject root) {
@@ -449,6 +538,44 @@ public class OmniConnection implements NotificationCenter.NotificationCenterDele
     }
 
     // --- Утилиты ---------------------------------------------------------------
+
+    // UA как у обычного браузера (паттерн Mirage): меньше шансов, что CDN/WAF
+    // порежет запросы как «ботовые».
+    private static final String USER_AGENT =
+            "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+
+    private String httpGet(String url) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+        conn.setConnectTimeout(5000);
+        conn.setReadTimeout(5000);
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("User-Agent", USER_AGENT);
+        if (conn.getResponseCode() != 200) {
+            throw new Exception("HTTP " + conn.getResponseCode());
+        }
+        return readAll(conn.getInputStream());
+    }
+
+    private String httpPost(String url, String json, String anonKey) throws Exception {
+        byte[] body = json.getBytes(StandardCharsets.UTF_8);
+        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+        conn.setConnectTimeout(5000);
+        conn.setReadTimeout(5000);
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setRequestProperty("User-Agent", USER_AGENT);
+        if (anonKey != null && !anonKey.isEmpty()) {
+            conn.setRequestProperty("X-Anonymous-Key", anonKey);
+        }
+        conn.setDoOutput(true);
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(body);
+        }
+        if (conn.getResponseCode() != 200) {
+            throw new Exception("HTTP " + conn.getResponseCode());
+        }
+        return readAll(conn.getInputStream());
+    }
 
     private String proxyListUrl() {
         try {
