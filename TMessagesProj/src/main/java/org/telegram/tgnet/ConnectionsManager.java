@@ -395,6 +395,52 @@ public class ConnectionsManager extends BaseController {
         if (BuildVars.LOGS_ENABLED) {
             FileLog.d("send request " + object + " with token = " + requestToken);
         }
+        // --- Omni Message: Ghost mode (PLAN.md C1) ---
+        // Три независимых тумблера в OmniSettingsActivity. Точка выбрана здесь,
+        // а не в ChatActivity/SendMessagesHelper: один хук покрывает ВСЕ пути
+        // отправки (чат, каналы, секретные чаты, отложенные задачи), и при
+        // ребейзе апстрима правится только этот блок (PLAN.md H4).
+        if (object instanceof TLRPC.TL_messages_setTyping || object instanceof TLRPC.TL_messages_setEncryptedTyping) {
+            // Не показывать набор текста, запись голосового, загрузку файла.
+            if (org.telegram.ui.OmniConfig.ghostTyping) {
+                return;
+            }
+        } else if (object instanceof org.telegram.tgnet.tl.TL_account.updateStatus) {
+            // Не показывать онлайн: подменяем статус на offline.
+            if (org.telegram.ui.OmniConfig.ghostOnline) {
+                ((org.telegram.tgnet.tl.TL_account.updateStatus) object).offline = true;
+            }
+        } else if (object instanceof TLRPC.TL_messages_readHistory
+                || object instanceof TLRPC.TL_messages_readEncryptedHistory
+                || object instanceof TLRPC.TL_messages_readDiscussion
+                || object instanceof TLRPC.TL_messages_readSavedHistory
+                || object instanceof TLRPC.TL_messages_readMessageContents
+                || object instanceof TLRPC.TL_channels_readHistory
+                || object instanceof TLRPC.TL_channels_readMessageContents) {
+            // Не отправлять прочтения. Локально чат помечается прочитанным
+            // самим апстримом (markDialogAsRead обновляет счётчики до отправки),
+            // а сюда отдаём фейковый ответ, чтобы pts/channel-difference не
+            // повисли в ожидании. Разовый пропуск — через allowReadOnce().
+            if (org.telegram.ui.OmniConfig.ghostRead && !org.telegram.ui.OmniConfig.consumeAllowRead()) {
+                TLRPC.TL_messages_affectedMessages fakeRes = new TLRPC.TL_messages_affectedMessages();
+                fakeRes.pts = -1;
+                fakeRes.pts_count = 0;
+                final RequestDelegate finalOnComplete = onComplete;
+                final RequestDelegateTimestamp finalOnCompleteTimestamp = onCompleteTimestamp;
+                org.telegram.messenger.Utilities.stageQueue.postRunnable(() -> {
+                    try {
+                        if (finalOnComplete != null) {
+                            finalOnComplete.run(fakeRes, null);
+                        } else if (finalOnCompleteTimestamp != null) {
+                            finalOnCompleteTimestamp.run(fakeRes, null, 0);
+                        }
+                    } catch (Exception e) {
+                        FileLog.e(e);
+                    }
+                });
+                return;
+            }
+        }
         try {
             NativeByteBuffer buffer = new NativeByteBuffer(object.getObjectSize());
             object.serializeToStream(buffer);

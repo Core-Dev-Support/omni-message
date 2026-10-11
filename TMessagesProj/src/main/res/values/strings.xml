@@ -23,6 +23,9 @@
     <string name="OmniNetworkInfo">Automatically route the app through an MTProto proxy when the direct connection fails. Coming soon.</string>
     <string name="OmniAppLock">App lock</string>
     <string name="OmniAppearanceInfo">PIN, biometrics and screenshot blocking. Coming soon.</string>
+    <string name="OmniDeletedTitle">Deleted by others</string>
+    <string name="OmniDeletedClear">Clear archive</string>
+    <string name="OmniDeletedInfo">Messages deleted by others are kept here (text only, last 200). Media is not saved.</string>
     <string name="AppNameBeta">Telegram Beta</string>
     <string name="LanguageName">English</string>
     <string name="English">English</string>

@@ -39,6 +39,25 @@ public class OmniConfig {
     public static boolean appLockEnabled = false;
     public static int schema = 0;
 
+    // --- Ghost mode: разовый пропуск (не сохраняется) ----------------------
+    // Нужен, чтобы внутренняя логика (или действие пользователя «прочитать
+    // на сервере») могла один раз отправить настоящее прочтение, не выключая
+    // ghostRead целиком. Счётчик, а не флаг: несколько запросов подряд —
+    // несколько разрешений.
+    private static int allowReadTokens = 0;
+
+    public static synchronized void allowReadOnce() {
+        allowReadTokens++;
+    }
+
+    public static synchronized boolean consumeAllowRead() {
+        if (allowReadTokens > 0) {
+            allowReadTokens--;
+            return true;
+        }
+        return false;
+    }
+
     private static SharedPreferences prefs;
 
     private static SharedPreferences getPrefs() {

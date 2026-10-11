@@ -21208,6 +21208,10 @@ public class MessagesController extends BaseController implements NotificationCe
             }
         }
         if (deletedMessages != null) {
+            // --- Omni Message: Anti-recall (PLAN.md C2) ---
+            // Перед удалением сохраняем тексты в локальный архив. Само удаление
+            // идёт своим чередом; просмотр — раздел «Удалённые» в Omni-настройках.
+            org.telegram.ui.OmniDeletedStore.saveAll(currentAccount, this, deletedMessages);
             for (int a = 0, size = deletedMessages.size(); a < size; a++) {
                 long key = deletedMessages.keyAt(a);
                 ArrayList<Integer> arrayList = deletedMessages.valueAt(a);

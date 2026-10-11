@@ -42,6 +42,7 @@ public class OmniSettingsActivity extends BaseFragment {
     public static final int ID_GHOST_ONLINE = 102;
     public static final int ID_GHOST_TYPING = 103;
     public static final int ID_ANTI_RECALL = 104;
+    public static final int ID_DELETED_CLEAR = 105;
     public static final int ID_NETWORK = 200;
     public static final int ID_APP_LOCK = 300;
 
@@ -86,6 +87,25 @@ public class OmniSettingsActivity extends BaseFragment {
         items.add(UItem.asCheck(ID_ANTI_RECALL, getString(R.string.OmniAntiRecall)).setChecked(OmniConfig.antiRecall));
         items.add(UItem.asShadow(getString(R.string.OmniPrivacyWarning)));
 
+        // --- Удалённые собеседником (Anti-recall, PLAN.md C2) ----------------
+        // Только когда тумблер включён и архив не пуст. Строки read-only:
+        // «имя • дата» + текст. Полный текст — в строке, она многострочная.
+        java.util.List<OmniDeletedStore.Entry> deleted = OmniConfig.antiRecall
+                ? OmniDeletedStore.getRecent() : null;
+        if (deleted != null && !deleted.isEmpty()) {
+            items.add(UItem.asHeader(getString(R.string.OmniDeletedTitle)));
+            int shown = 0;
+            for (OmniDeletedStore.Entry e : deleted) {
+                if (shown >= 30) {
+                    break;
+                }
+                items.add(UItem.asShadow(e.title + "\n" + e.text));
+                shown++;
+            }
+            items.add(UItem.asButton(ID_DELETED_CLEAR, getString(R.string.OmniDeletedClear)));
+            items.add(UItem.asShadow(getString(R.string.OmniDeletedInfo)));
+        }
+
         // --- Обход блокировок ---------------------------------------------
         items.add(UItem.asHeader(getString(R.string.OmniCategoryNetwork)));
         items.add(UItem.asCheck(ID_NETWORK, getString(R.string.OmniNetworkTitle)).setChecked(OmniConfig.proxyEnabled));
@@ -113,6 +133,9 @@ public class OmniSettingsActivity extends BaseFragment {
                 break;
             case ID_ANTI_RECALL:
                 OmniConfig.antiRecall = !OmniConfig.antiRecall;
+                break;
+            case ID_DELETED_CLEAR:
+                OmniDeletedStore.clear();
                 break;
             case ID_APP_LOCK:
                 OmniConfig.appLockEnabled = !OmniConfig.appLockEnabled;
