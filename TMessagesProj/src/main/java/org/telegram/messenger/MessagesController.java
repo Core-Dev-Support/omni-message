@@ -10925,7 +10925,13 @@ public class MessagesController extends BaseController implements NotificationCe
                 }
                 promoDialogId = did;
                 if (res.proxy) {
+                    // --- Omni Message: Anti-Ad (паритет NovaGram v7.0.10) ---
+                    // Бесплатные MTProto-прокси навязывают спонсорский канал над
+                    // списком чатов. Прокси работают, реклама — нет: ведём себя
+                    // как на пустой ответ — канал не закрепляется и сносится.
+                    // PSA и прочие типы не трогаем.
                     promoDialogType = PROMO_TYPE_PROXY;
+                    noDialog = true;
                 } else if (!TextUtils.isEmpty(res.psa_type)) {
                     promoDialogType = PROMO_TYPE_PSA;
                     promoPsaType = res.psa_type;

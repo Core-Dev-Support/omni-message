@@ -123,7 +123,11 @@ public class OmniConnection implements NotificationCenter.NotificationCenterDele
         }
         int state = ConnectionsManager.getInstance(account).getConnectionState();
         long now = System.currentTimeMillis();
-        if (state == ConnectionsManager.ConnectionStateWaitingForNetwork) {
+        // Паритет NovaGram: триггер — висящий Connecting ИЛИ WaitingForNetwork.
+        // Защита от ложных срабатываний — непрерывность >15 c: штатный коннект
+        // проходит эти состояния за секунды и сбрасывает таймер.
+        if (state == ConnectionsManager.ConnectionStateWaitingForNetwork
+                || state == ConnectionsManager.ConnectionStateConnecting) {
             if (waitingSince == 0) {
                 waitingSince = now;
                 return;
@@ -211,6 +215,7 @@ public class OmniConnection implements NotificationCenter.NotificationCenterDele
             if (list.size() < 2) {
                 list = fetchList();
             }
+            list = cap(list);
             if (list.isEmpty()) {
                 return;
             }
@@ -228,8 +233,71 @@ public class OmniConnection implements NotificationCenter.NotificationCenterDele
                     applyProxy(c);
                     return;
                 }
+                // Паритет NovaGram: мёртвые удаляются из клиента — только то,
+                // что реально работает. Чужие ручные прокси не трогаем.
+                removeManaged(c.host);
             }
         }, "omni-proxy-rotate").start();
+    }
+
+    /** Потолок кандидатов за цикл (паритет NovaGram: тянем аккуратно, без лагов). */
+    private static final int MAX_CANDIDATES = 15;
+
+    private static List<ProxyCandidate> cap(List<ProxyCandidate> list) {
+        if (list.size() <= MAX_CANDIDATES) {
+            return list;
+        }
+        return new ArrayList<>(list.subList(0, MAX_CANDIDATES));
+    }
+
+    // --- Учёт своих прокси: удаляем только то, что сами добавили -------------
+
+    private java.util.Set<String> managedHosts() {
+        try {
+            java.util.Set<String> s = prefs().getStringSet("managed_hosts", null);
+            return s != null ? new java.util.HashSet<>(s) : new java.util.HashSet<>();
+        } catch (Exception e) {
+            return new java.util.HashSet<>();
+        }
+    }
+
+    private void markManaged(String host) {
+        try {
+            java.util.Set<String> s = managedHosts();
+            if (s.add(host)) {
+                prefs().edit().putStringSet("managed_hosts", s).apply();
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
+
+    private void removeManaged(String host) {
+        try {
+            java.util.Set<String> s = managedHosts();
+            if (!s.remove(host)) {
+                return; // чужой ручной прокси — не трогаем
+            }
+            prefs().edit().putStringSet("managed_hosts", s).apply();
+            boolean changed = false;
+            for (int i = SharedConfig.proxyList.size() - 1; i >= 0; i--) {
+                SharedConfig.ProxyInfo p = SharedConfig.proxyList.get(i);
+                if (p != null && p.settings != null && host.equals(p.settings.getAddress())
+                        && p.settings.getType() == ProxySettings.Type.MTPROTO) {
+                    SharedConfig.proxyList.remove(i);
+                    changed = true;
+                }
+            }
+            if (SharedConfig.currentProxy != null && SharedConfig.currentProxy.settings != null
+                    && host.equals(SharedConfig.currentProxy.settings.getAddress())) {
+                SharedConfig.currentProxy = null;
+            }
+            if (changed) {
+                SharedConfig.saveProxyList();
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
     }
 
     private void disableOwnProxy() {
@@ -281,6 +349,7 @@ public class OmniConnection implements NotificationCenter.NotificationCenterDele
             ConnectionsManager.setProxySettings(true, settings);
             NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.proxySettingsChanged);
             lastOmniProxyHost = c.host;
+            markManaged(c.host);
             prefs().edit().putString("last_host", c.host).apply();
         } catch (Exception e) {
             FileLog.e(e);
@@ -290,16 +359,23 @@ public class OmniConnection implements NotificationCenter.NotificationCenterDele
     // --- Список: сеть → кеш → встроенный fallback ---------------------------
 
     /**
-     * Встроенный fallback (PLAN.md D2): доверенные MTProto-прокси организации.
-     * Формат: {host, port, secret}. Секрет — ee/dd + hex (TLS-маскировка).
-     * Сейчас пусто: адреса вписывает владелец инфраструктуры (например, mtg
-     * на тех же серверах, что раздают VLESS-ключи Mirage). Чужие публичные
-     * прокси сюда не кладём: через них идёт весь трафик, доверие обязательно.
+     * Встроенный fallback (PLAN.md D2): публичные MTProto-прокси (проверены,
+     * свежие на момент вшивания) + место под свои.
+     * Честно: это чужие серверы — оператор видит IP и факт подключения
+     * (содержимое переписки MTProto-шифрованием закрыто). Поэтому: список
+     * только стартовый, свои mtg — в приоритет (кладутся первыми и в
+     * OMNI_PROXY_URL/app-config). Мёртвые отсекает пинг автоматически.
      */
     static List<ProxyCandidate> bundledFallback() {
         String[][] raw = {
+                // Свои — всегда первые (пример формата):
                 // {"proxy1.example.com", "443", "ee00000000000000000000000000000000"},
-                // {"proxy2.example.com", "443", "dd00000000000000000000000000000000"},
+                // Публичные (источник: mtpro.xyz, свежие; ротация и пинг сами отсеют мёртвые):
+                {"mtproto.online", "443", "ee139e0ee36150c1ea3bf299796586b5457777772e7674622e7275"},
+                {"91.108.242.229", "443", "ee06471735f9009107bc26dd39fb0d95006f7a6f6e2e7275"},
+                {"13.141.64.54", "443", "ee94989d74ad055391384d92c3c7378d264726976652e676f6f676c652e636f6d"},
+                {"79.182.27.247", "443", "eeee835a34516912f161a007339be3c64676174665761792e6c2f6e79652d79652e6174"},
+                {"nnmby.com", "443", "dd9e1dde0de02a2e7c22d10e2fff84101013"},
         };
         ArrayList<ProxyCandidate> out = new ArrayList<>();
         for (String[] r : raw) {
@@ -330,9 +406,19 @@ public class OmniConnection implements NotificationCenter.NotificationCenterDele
         }
         try {
             String resp = httpGet(url);
-            List<ProxyCandidate> list = parseList(new JSONObject(resp));
+            // Сначала JSON {proxies:[...]}, иначе — tg://proxy-ссылки в тексте.
+            // Так источником может быть что угодно: gist, страница, пост.
+            List<ProxyCandidate> list;
+            try {
+                list = parseList(new JSONObject(resp));
+            } catch (Exception je) {
+                list = new ArrayList<>();
+            }
+            if (list.isEmpty()) {
+                list = parseTgLinks(resp);
+            }
             if (!list.isEmpty()) {
-                cacheRaw(resp);
+                cacheMerged(list);
             }
             return list.isEmpty() ? cachedList() : list;
         } catch (Exception e) {
@@ -414,6 +500,42 @@ public class OmniConnection implements NotificationCenter.NotificationCenterDele
         return out;
     }
 
+    /**
+     * Парсинг tg://proxy-ссылок из любого текста (gist, страница, пост канала).
+     * Формат стабилен годами: tg://proxy?server=HOST&port=PORT&secret=SECRET.
+     * Позволяет держать список где угодно без JSON-обёртки.
+     */
+    static List<ProxyCandidate> parseTgLinks(String text) {
+        ArrayList<ProxyCandidate> out = new ArrayList<>();
+        if (text == null) {
+            return out;
+        }
+        try {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                    "tg://proxy\\?server=([^&\\s\"'<>]+)&port=(\\d+)&secret=([0-9a-fA-F]+)"
+            ).matcher(text);
+            while (m.find()) {
+                ProxyCandidate c = new ProxyCandidate();
+                c.host = m.group(1);
+                try {
+                    c.port = Integer.parseInt(m.group(2));
+                } catch (Exception e) {
+                    continue;
+                }
+                c.secret = m.group(3);
+                if (!c.host.isEmpty() && c.port > 0 && c.port < 65536 && !c.secret.isEmpty()) {
+                    out.add(c);
+                }
+                if (out.size() >= MAX_CANDIDATES) {
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+        return out;
+    }
+
     private List<ProxyCandidate> cachedList() {
         ArrayList<ProxyCandidate> out = new ArrayList<>();
         try {
@@ -429,15 +551,30 @@ public class OmniConnection implements NotificationCenter.NotificationCenterDele
         return out;
     }
 
-    private void cacheRaw(String raw) {
-        prefs().edit().putString("raw", raw).putLong("fetched_at", System.currentTimeMillis()).apply();
+    private void cacheMerged(List<ProxyCandidate> list) {
+        try {
+            // Храним нормализованный JSON: кеш всегда читается через parseList.
+            JSONObject root = new JSONObject();
+            JSONArray arr = new JSONArray();
+            for (ProxyCandidate c : list) {
+                JSONObject o = new JSONObject();
+                o.put("host", c.host);
+                o.put("port", c.port);
+                o.put("secret", c.secret);
+                arr.put(o);
+            }
+            root.put("proxies", arr);
+            prefs().edit().putString("raw", root.toString()).putLong("fetched_at", System.currentTimeMillis()).apply();
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
     }
 
     // --- Пинг ----------------------------------------------------------------
 
     private ProxyCandidate pingAndPick(List<ProxyCandidate> list) {
         ProxyCandidate best = null;
-        for (ProxyCandidate c : list) {
+        for (ProxyCandidate c : cap(list)) {
             if (ping(c) && (best == null || c.pingMs < best.pingMs)) {
                 best = c;
             }
