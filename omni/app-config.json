@@ -1,4 +1,4 @@
 {
-  "_comment": "Bootstrap конфиг раздачи бесплатных MTProto-прокси (PLAN.md D3). Клиент читает api_base_url отсюда (зеркала в OmniConnection.CONFIG_MIRRORS), затем идёт флоу Mirage: POST /auth/register -> POST /proxy/config. Пустая строка = сервера нет, клиент работает только на встроенном fallback. Формат сервера: docs/PROXY_SERVER.md",
-  "api_base_url": ""
+  "_comment": "Bootstrap бесплатной раздачи MTProto-прокси (PLAN.md D3). Клиент читает proxy_list_url отсюда, затем GET-ом забирает статический JSON {proxies:[{host,port,secret}]}. Пустая строка = списка нет, клиент работает только на встроенном fallback и кеше. Формат списка: docs/PROXY_SERVER.md",
+  "proxy_list_url": ""
 }

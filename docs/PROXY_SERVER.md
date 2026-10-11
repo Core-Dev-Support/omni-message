@@ -1,55 +1,85 @@
-# Раздача бесплатных прокси: контракт клиент ↔ сервер
+# Бесплатная раздача прокси: только статический JSON, без сервера
 
-Флоу скопирован 1 в 1 с бесплатных ключей NAUA Security Mirage (а там — с vpGram).
-Таблица соответствия (чтобы было видно, что изучено, а не выдумано):
+Решено: платная инфраструктура слабая и отдана под VPN, поэтому раздача
+прокси — только бесплатная и без серверного бэкенда. Никаких регистраций,
+токенов и Edge-функций: обычный JSON-файл по HTTPS, который правится руками.
 
-| Mirage (`naua-security-mirage-android`, ветка `main`) | Omni (`OmniConnection.java`) |
-|---|---|
-| `app/.../data/supabase/SupabaseConfig.kt` + `AppConfigEndpoints.kt`: `app-config.json` с тройным фолбэком GitHub raw → GCS → Yandex | `CONFIG_MIRRORS`: `omni/app-config.json` с GitHub raw (+ место под зеркала); override через `OMNI_PROXY_URL` |
-| `VpnSDK.registerOrAuth(maxAttempts=3)`, бэкофф 1/2/4 c | `register()`: те же 3 попытки, те же паузы |
-| `GET .../client-api/v1/download-anonymous-key` (`anonymous_key_relative_path`) | `anonKey()`: тот же путь, опционален, уходит заголовком `X-Anonymous-Key` |
-| `VlessKeyRepository`: POST `{deviceId}` (UUID из `DeviceIdRepository`, UA `Chrome/120`) | POST `{deviceId, token, app, v}` с тем же UA |
-| Ответ — Xray-конфиг `{config:{outbounds}}` / `v2rayKey` | Ответ — `{proxies:[{host,port,secret}]}` (проще: MTProto не нужен Xray) |
-| `free_panel_cache.json`, 256 КБ, TTL 10 мин; fallback — 3 захардкоженных узла | кеш prefs, TTL 6 ч; fallback — `bundledFallback()` |
-| `PingRepository.measureAllPings`, перебор до `CONNECTED` | `pingAndPick()` через `ConnectionsManager.checkProxy` |
+## Формат списка
 
-## Endpoints
+```json
+{
+  "proxies": [
+    {"host": "proxy1.example.com", "port": 443, "secret": "ee..."},
+    {"host": "proxy2.example.com", "port": 443, "secret": "dd..."}
+  ]
+}
+```
 
-База (`api_base_url`): либо `OMNI_PROXY_URL` (Secrets/local.properties), либо из
-`omni/app-config.json`, либо кеш. Все тела — JSON, все ответы — JSON.
+Требования: непустой host, порт 1–65535, непустой secret (`ee`/`dd` + hex —
+TLS-маскировка). Мусор клиент отбрасывает молча (`ProxySettings.isValid()`).
 
-### `GET {api}/client-api/v1/download-anonymous-key`
+## Где лежит
 
-→ `{"key": "..."}` или `{"key": ""}`. Опционален: нет эндпоинта — работаем без ключа.
+Клиент ищет URL списка так (первое непустое побеждает):
 
-### `POST {api}/auth/register`
+1. Секрет `OMNI_PROXY_URL` (CI) / `local.properties` (локально) — прямой override.
+2. Кеш найденного URL (сутки).
+3. `omni/app-config.json` в этом репозитории → поле `proxy_list_url`.
 
-Тело: `{"deviceId": "<uuid>", "app": "omni-message", "v": 1}`
+Файл читается с `https://raw.githubusercontent.com/.../main/omni/app-config.json`
+при каждом старте (кеш суток). Поменял URL в JSON — клиенты подхватят сами,
+ничего пересобирать не надо.
 
-→ `{"token": "<opaque>"}` или `{"token": ""}` (open mode).
-Клиент повторяет до 3 раз с паузами 1/2/4 c, токен кеширует на сутки.
+## Как обновить список
 
-### `POST {api}/proxy/config`
+Вариант А (рекомендуется): gist или файл в репозитории.
 
-Тело: `{"deviceId": "<uuid>", "token": "<из register>", "app": "omni-message", "v": 1}`
+```bash
+# gist:
+gh gist create proxies.json --public
+# URL вида https://gist.githubusercontent.com/<user>/<id>/raw/proxies.json
+# вписать в omni/app-config.json -> proxy_list_url, закоммитить
+```
 
-→ `{"proxies": [{"host": "...", "port": 443, "secret": "ee..."}]}`
+Вариант Б: любой HTTPS-хостинг (свой сайт, CDN). Обычный HTTPS, как правило,
+не блокируется — в этом весь смысл (тот же приём, что живые списки у Mirage).
 
-Требования к элементам: непустой host, порт 1–65535, непустой secret
-(клиент валидирует через `ProxySettings.isValid()` и мусор отбрасывает).
+## Откуда взять сами прокси
+
+Сервер раздаёт только список; сами MTProto-прокси подними отдельно — лучше на
+своей инфраструктуре (например, те же VPS, что раздают VLESS для Mirage):
+
+```bash
+# mtg на любом VPS, одна команда:
+docker run -d --restart unless-stopped -p 443:3128 \
+  -e SECRET=$(openssl rand -hex 16 | sed 's/^/ee/') \
+  nineseconds/mtg:latest run :3128
+# секрет из логов: docker logs <id> | grep ee
+```
+
+2–3 инстанса в разных местах — и список заполнен. Чужие публичные прокси в
+общий список не кладём: через них идёт весь трафик пользователей (см. PLAN.md D6).
 
 ## Поведение клиента (коротко)
 
-1. Bootstrap базы → register (кеш токена сутки) → fetch списка.
-2. Пустой ответ / ошибка / нет сервера → кеш (6 ч) → встроенный fallback.
-3. Кандидаты пингуются, быстрейший включается штатно (весь tgnet-трафик).
+1. URL списка → GET JSON → валидация → кеш 6 ч.
+2. Пусто / ошибка / нет URL → кеш → встроенный `bundledFallback()`.
+3. Кандидаты пингуются (`checkProxy`), быстрейший включается штатно.
 4. Висение >15 c — ротация по кругу. Kill-switch — никогда не снимать самим.
 
-## Безопасность
+Редкие запросы — осознанно: сервер слабый, дёргаем его минимум (кеш URL сутки,
+кеш списка 6 часов).
 
-- URL подписки и токены лежат в prefs приложения — как у Mirage. Рута достаточно,
-  чтобы их достать; это нормально для бесплатной раздачи.
-- Подпись списка Ed25519 — запланирована (PLAN.md D3), в v1 её нет: сервер
-  доверенный (свой), зеркала — только discovery `api_base_url`, не сам список.
-- Abuse-контроль — на сервере: `REQUIRE_TOKEN=1`, rate limit, ротация секретов
-  прокси. Клиент шлёт стабильный `deviceId` (UUID, генерится один раз).
+## Что из Mirage реально переиспользовано
+
+Только бесплатная часть (файлы — ветка `main` `naua-security-mirage-android`):
+
+| Mirage | Omni |
+|---|---|
+| `app-config.json` с зеркал (discovery) | `omni/app-config.json` → `proxy_list_url` |
+| `free_panel_cache.json`, TTL | кеш prefs, TTL 6 ч |
+| захардкоженные fallback-серверы | `bundledFallback()` |
+| `PingRepository` перебор до CONNECTED | `pingAndPick()` через `checkProxy` |
+
+Регистрация, токены и `download-anonymous-key` убраны за ненадобностью: для
+бесплатной раздачи они не нужны, а слабый сервер лишними запросами не грузим.

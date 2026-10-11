@@ -16,7 +16,7 @@
 | `RELEASE_KEY_PASSWORD` | пароль ключа | да |
 | `OMNI_TELEGRAM_API_ID` | api_id с my.telegram.org | да (иначе вход не работает) |
 | `OMNI_TELEGRAM_API_HASH` | api_hash с my.telegram.org | да |
-| `OMNI_PROXY_URL` | api_base_url раздачи прокси (см. `docs/PROXY_SERVER.md`). Пусто = bootstrap через `omni/app-config.json`; если и там пусто — только встроенный fallback | нет |
+| `OMNI_PROXY_URL` | прямой URL статического JSON `{proxies:[...]}` (см. `docs/PROXY_SERVER.md`). Пусто = bootstrap через `omni/app-config.json`; если и там пусто — только встроенный fallback | нет |
 
 Получить base64 keystore:
 
